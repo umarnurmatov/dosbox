@@ -1,0 +1,99 @@
+Turbo Assembler	 Version 4.1	    02/11/26 24:44:06	    Page 1
+vram.asm
+
+
+
+      1	0000			     .model tiny
+      2	0000			     .code
+      3				     org 100h
+      4
+      5	      =	0dh, 0ah	     CRLF	     equ 0dh, 0ah
+      6	      =B800		     VRAMSEGMENT     equ 0b800h
+      7	      =0080		     ARGCNT_ADDR     equ 80h
+      8	      =0081		     CMDARG_ADDR     equ 81h
+      9	      =0004		     COLATTRIB	     equ 00000100b
+     10	      =0019		     SCREENH	     equ 19h
+     11	      =00A0		     SCREENW	     equ 2*50h
+     12
+     13	      =000B		     DEFSTR_LEN	     equ 0bh
+     14
+     15	0100  B8 B800		     Start:	     mov ax, VRAMSEGMENT
+     16	0103  8E C0				     mov es, ax
+     17
+     18	0105  BF 07D0				     mov di, SCREENW*(SCREENH/2)+SCREENW/2
+     19	0108  BE 0080				     mov si, ARGCNT_ADDR
+     20	010B  8A 0C				     mov byte ptr cl, [si]   ; cx = str_len
+     21
+     22	010D  80 F9 00				     cmp cl, 0
+     23	0110  74 06				     je	init_default
+     24
+     25	0112  BE 0081				     mov si, CMDARG_ADDR     ; si = &cmd_str
+     26	0115  EB 06 90				     jmp init_end
+     27
+     28	0118  BE 0135r		     init_default:   mov si, offset DEFAULT_STR	     ; si = &default_str
+     29	011B  B1 0B				     mov cl, DEFSTR_LEN
+     30
+     31	011D			     init_end:
+     32	011D  B4 04				     mov ah, COLATTRIB	     ; ah = color_attrib
+     33	011F  8B D1				     mov dx, cx
+     34	0121  D1 EA				     shr dx, 1
+     35	0123  D1 E2				     sal dx, 1
+     36	0125  2B FA				     sub di, dx		     ; pox_y -=	str_len	/ 2
+     37
+     38	0127  AC		     sloop:	     lodsb		     ; al = ds:[si]; ++si
+     39	0128  AB				     stosw		     ; es:[di] = ah; ++di
+     40	0129  FE C9				     dec cl
+     41	012B  80 F9 00				     cmp cl, 0h
+     42	012E  75 F7				     jne sloop
+     43
+     44	0130  B8 004C				     mov ax, 004ch
+     45	0133  CD 21				     int 21h
+     46
+     47	0135  68 65 6C 6C 6F 20	77+  DEFAULT_STR     db	'hello world', CRLF
+     48	      6F 72 6C 64 0D 0A
+     49
+     50				     end Start
+Turbo Assembler	 Version 4.1	    02/11/26 24:44:06	    Page 2
+Symbol Table
+
+
+
+
+Symbol Name			  Type	 Value
+
+??DATE				  Text	 "02/11/26"
+??FILENAME			  Text	 "vram	  "
+??TIME				  Text	 "24:44:06"
+??VERSION			  Number 040A
+@32BIT				  Text	 0
+@CODE				  Text	 DGROUP
+@CODESIZE			  Text	 0
+@CPU				  Text	 0101H
+@CURSEG				  Text	 _TEXT
+@DATA				  Text	 DGROUP
+@DATASIZE			  Text	 0
+@FILENAME			  Text	 VRAM
+@INTERFACE			  Text	 000H
+@MODEL				  Text	 1
+@STACK				  Text	 DGROUP
+@WORDSIZE			  Text	 2
+ARGCNT_ADDR			  Number 0080
+CMDARG_ADDR			  Number 0081
+COLATTRIB			  Number 0004
+CRLF				  Text	 0dh, 0ah
+DEFAULT_STR			  Byte	 DGROUP:0135
+DEFSTR_LEN			  Number 000B
+INIT_DEFAULT			  Near	 DGROUP:0118
+INIT_END			  Near	 DGROUP:011D
+SCREENH				  Number 0019
+SCREENW				  Number 00A0
+SLOOP				  Near	 DGROUP:0127
+START				  Near	 DGROUP:0100
+VRAMSEGMENT			  Number B800
+
+Groups & Segments		  Bit Size Align  Combine Class
+
+DGROUP				  Group
+  _DATA				  16  0000 Word	  Public  DATA
+  _TEXT				  16  0142 Word	  Public  CODE
+
