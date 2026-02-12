@@ -1,4 +1,4 @@
-Turbo Assembler	 Version 4.1	    02/11/26 24:44:06	    Page 1
+Turbo Assembler	 Version 4.1	    02/11/26 26:18:37	    Page 1
 vram.asm
 
 
@@ -12,48 +12,101 @@ vram.asm
       7	      =0080		     ARGCNT_ADDR     equ 80h
       8	      =0081		     CMDARG_ADDR     equ 81h
       9	      =0004		     COLATTRIB	     equ 00000100b
-     10	      =0019		     SCREENH	     equ 19h
-     11	      =00A0		     SCREENW	     equ 2*50h
-     12
-     13	      =000B		     DEFSTR_LEN	     equ 0bh
-     14
-     15	0100  B8 B800		     Start:	     mov ax, VRAMSEGMENT
-     16	0103  8E C0				     mov es, ax
-     17
-     18	0105  BF 07D0				     mov di, SCREENW*(SCREENH/2)+SCREENW/2
-     19	0108  BE 0080				     mov si, ARGCNT_ADDR
-     20	010B  8A 0C				     mov byte ptr cl, [si]   ; cx = str_len
-     21
-     22	010D  80 F9 00				     cmp cl, 0
-     23	0110  74 06				     je	init_default
-     24
-     25	0112  BE 0081				     mov si, CMDARG_ADDR     ; si = &cmd_str
-     26	0115  EB 06 90				     jmp init_end
-     27
-     28	0118  BE 0135r		     init_default:   mov si, offset DEFAULT_STR	     ; si = &default_str
-     29	011B  B1 0B				     mov cl, DEFSTR_LEN
-     30
-     31	011D			     init_end:
-     32	011D  B4 04				     mov ah, COLATTRIB	     ; ah = color_attrib
-     33	011F  8B D1				     mov dx, cx
-     34	0121  D1 EA				     shr dx, 1
-     35	0123  D1 E2				     sal dx, 1
-     36	0125  2B FA				     sub di, dx		     ; pox_y -=	str_len	/ 2
-     37
-     38	0127  AC		     sloop:	     lodsb		     ; al = ds:[si]; ++si
-     39	0128  AB				     stosw		     ; es:[di] = ah; ++di
-     40	0129  FE C9				     dec cl
-     41	012B  80 F9 00				     cmp cl, 0h
-     42	012E  75 F7				     jne sloop
-     43
-     44	0130  B8 004C				     mov ax, 004ch
-     45	0133  CD 21				     int 21h
-     46
-     47	0135  68 65 6C 6C 6F 20	77+  DEFAULT_STR     db	'hello world', CRLF
-     48	      6F 72 6C 64 0D 0A
-     49
-     50				     end Start
-Turbo Assembler	 Version 4.1	    02/11/26 24:44:06	    Page 2
+     10	      =00B2		     COLATTRIB_BD    equ 10110010b
+     11	      =0019		     SCREENH	     equ 19h
+     12	      =00A0		     SCREENW	     equ 2*50h
+     13
+     14	      =000B		     DEFSTR_LEN	     equ 0bh
+     15
+     16	0100  B8 B800		     Start:	     mov ax, VRAMSEGMENT
+     17	0103  8E C0				     mov es, ax
+     18
+     19	0105  BF 07D0				     mov di, SCREENW*(SCREENH/2)+SCREENW/2
+     20	0108  BE 0080				     mov si, ARGCNT_ADDR
+     21	010B  8A 0C				     mov byte ptr cl, [si]   ; cx = str_len
+     22
+     23	010D  80 F9 00				     cmp cl, 0
+     24	0110  74 06				     je	init_default
+     25
+     26	0112  BE 0081				     mov si, CMDARG_ADDR     ; si = &cmd_str
+     27	0115  EB 06 90				     jmp init_end
+     28
+     29	0118  BE 017Dr		     init_default:   mov si, offset DEFAULT_STR	     ; si = &default_str
+     30	011B  B1 0B				     mov cl, DEFSTR_LEN
+     31
+     32	011D			     init_end:
+     33	011D  B4 04				     mov ah, COLATTRIB	     ; ah = color_attrib
+     34	011F  8B D1				     mov dx, cx
+     35	0121  D1 EA				     shr dx, 1
+     36	0123  D1 E2				     sal dx, 1
+     37	0125  2B FA				     sub di, dx		     ; pox_y -=	str_len	/ 2
+     38	0127  51				     push cx
+     39
+     40	0128  AC		     sloop:	     lodsb		     ; al = ds:[si]; ++si
+     41	0129  AB				     stosw		     ; es:[di] = ah; ++di
+     42	012A  FE C9				     dec cl
+     43	012C  80 F9 00				     cmp cl, 0h
+     44	012F  75 F7				     jne sloop
+     45
+     46	0131  BF 072E				     mov di, SCREENW*(SCREENH/2	- 1)+SCREENW/2-2
+     47	0134  2B FA				     sub di, dx
+     48	0136  5E				     pop si
+     49	0137  83 C6 02				     add si, 02h
+     50	013A  BA 0001				     mov dx, 01h
+     51
+     52	013D  E8 0005				     call draw_rect
+     53
+     54	0140  B8 004C				     mov ax, 004ch
+     55	0143  CD 21				     int 21h
+     56
+     57	0145			     draw_rect:				     ; di <- top-left corner
+Turbo Assembler	 Version 4.1	    02/11/26 26:18:37	    Page 2
+vram.asm
+
+
+
+     58									     ; si <- width
+     59									     ; dx <- height - 2
+     60	0145  B4 B2				     mov ah, COLATTRIB_BD
+     61	0147  B0 23				     mov al, 023h
+     62
+     63	0149  57				     push di
+     64	014A  E8 0027				     call draw_hline
+     65
+     66	014D  5B				     pop bx
+     67	014E  81 C3 00A0			     add bx, SCREENW
+     68	0152  33 C9				     xor cx, cx
+     69	0154  83 EE 02				     sub si, 02h
+     70	0157  D1 E6				     sal si, 1
+     71	0159  26: 89 07		     yloop:	     mov word ptr es:[bx], ax
+     72	015C  26: 89 40	02			     mov word ptr es:[bx]+2[si], ax
+     73	0160  81 C3 00A0			     add bx, SCREENW
+     74	0164  41				     inc cx
+     75	0165  3B CA				     cmp cx, dx
+     76	0167  75 F0				     jne yloop
+     77	0169  D1 EE				     shr si, 1
+     78	016B  83 C6 02				     add si, 02h
+     79
+     80	016E  8B FB				     mov di, bx
+     81	0170  E8 0001				     call draw_hline
+     82
+     83	0173  C3				     ret
+     84
+     85	0174			     draw_hline:			     ; di <- start
+     86									     ; si <- width
+     87	0174  33 C9				     xor cx, cx
+     88	0176  AB		     xloop:	     stosw
+     89	0177  41				     inc cx
+     90	0178  3B CE				     cmp cx, si
+     91	017A  75 FA				     jne xloop
+     92
+     93	017C  C3				     ret
+     94
+     95	017D  68 65 6C 6C 6F 20	77+  DEFAULT_STR     db	'hello world', CRLF
+     96	      6F 72 6C 64 0D 0A
+     97
+     98				     end Start
+Turbo Assembler	 Version 4.1	    02/11/26 26:18:37	    Page 3
 Symbol Table
 
 
@@ -63,7 +116,7 @@ Symbol Name			  Type	 Value
 
 ??DATE				  Text	 "02/11/26"
 ??FILENAME			  Text	 "vram	  "
-??TIME				  Text	 "24:44:06"
+??TIME				  Text	 "26:18:37"
 ??VERSION			  Number 040A
 @32BIT				  Text	 0
 @CODE				  Text	 DGROUP
@@ -80,20 +133,25 @@ Symbol Name			  Type	 Value
 ARGCNT_ADDR			  Number 0080
 CMDARG_ADDR			  Number 0081
 COLATTRIB			  Number 0004
+COLATTRIB_BD			  Number 00B2
 CRLF				  Text	 0dh, 0ah
-DEFAULT_STR			  Byte	 DGROUP:0135
+DEFAULT_STR			  Byte	 DGROUP:017D
 DEFSTR_LEN			  Number 000B
+DRAW_HLINE			  Near	 DGROUP:0174
+DRAW_RECT			  Near	 DGROUP:0145
 INIT_DEFAULT			  Near	 DGROUP:0118
 INIT_END			  Near	 DGROUP:011D
 SCREENH				  Number 0019
 SCREENW				  Number 00A0
-SLOOP				  Near	 DGROUP:0127
+SLOOP				  Near	 DGROUP:0128
 START				  Near	 DGROUP:0100
 VRAMSEGMENT			  Number B800
+XLOOP				  Near	 DGROUP:0176
+YLOOP				  Near	 DGROUP:0159
 
 Groups & Segments		  Bit Size Align  Combine Class
 
 DGROUP				  Group
   _DATA				  16  0000 Word	  Public  DATA
-  _TEXT				  16  0142 Word	  Public  CODE
+  _TEXT				  16  018A Word	  Public  CODE
 

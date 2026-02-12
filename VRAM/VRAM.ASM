@@ -7,6 +7,7 @@ VRAMSEGMENT	equ 0b800h
 ARGCNT_ADDR	equ 80h
 CMDARG_ADDR	equ 81h
 COLATTRIB	equ 00000100b
+COLATTRIB_BD	equ 10110010b
 SCREENH		equ 19h
 SCREENW		equ 2*50h
 
@@ -34,15 +35,62 @@ init_end:
 		shr dx, 1
 		sal dx, 1
 		sub di, dx		; pox_y -= str_len / 2
+		push cx
 
 sloop:		lodsb			; al = ds:[si]; ++si
 		stosw			; es:[di] = ah; ++di
 		dec cl
 		cmp cl, 0h
-		jne sloop	
+		jne sloop
+
+		mov di, SCREENW*(SCREENH/2 - 1)+SCREENW/2-2
+		sub di, dx
+		pop si
+		add si, 02h
+		mov dx, 01h
+
+		call draw_rect
 
 		mov ax, 004ch
 		int 21h
+
+draw_rect:				; di <- top-left corner
+					; si <- width
+					; dx <- height - 2
+		mov ah, COLATTRIB_BD
+		mov al, 023h
+		
+		push di
+		call draw_hline
+
+		pop bx
+		add bx, SCREENW
+		xor cx, cx
+		sub si, 02h
+		sal si, 1
+yloop: 		mov word ptr es:[bx], ax
+		mov word ptr es:[bx]+2[si], ax
+		add bx, SCREENW
+		inc cx
+		cmp cx, dx
+		jne yloop
+		shr si, 1
+		add si, 02h
+
+		mov di, bx
+		call draw_hline
+		
+		ret
+
+draw_hline:				; di <- start
+					; si <- width
+		xor cx, cx
+xloop:		stosw
+		inc cx
+		cmp cx, si
+		jne xloop
+
+		ret
 
 DEFAULT_STR     db 'hello world', CRLF
 
