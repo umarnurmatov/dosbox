@@ -1,97 +1,183 @@
 .model tiny
+
+.data
+
+CRLF		    equ 0dh, 0ah
+
+DEFAULT_STR     db 'hello world', CRLF
+DEFAULT_STR_LEN equ $ - DEFAULT_STR - 2
+
 .code
 org 100h
 
-CRLF		equ 0dh, 0ah
 VRAMSEGMENT	equ 0b800h
 ARGCNT_ADDR	equ 80h
 CMDARG_ADDR	equ 81h
 COLATTRIB	equ 00000100b
-COLATTRIB_BD	equ 10110010b
 SCREENH		equ 19h
 SCREENW		equ 2*50h
+B_OFFSET    equ 4h
 
-DEFSTR_LEN	equ 0bh
+locals @@
 
-Start:		mov ax, VRAMSEGMENT
-		mov es, ax
-		
-		mov di, SCREENW*(SCREENH/2)+SCREENW/2
-		mov si, ARGCNT_ADDR		
-		mov byte ptr cl, [si]   ; cx = str_len
-		
-		cmp cl, 0
-		je init_default
+Start:		    call Main 
 
-		mov si, CMDARG_ADDR	; si = &cmd_str
-		jmp init_end
- 
-init_default:   mov si, offset DEFAULT_STR	; si = &default_str
-		mov cl, DEFSTR_LEN
+                mov ax, 004ch
+                int 21h
 
-init_end:	
-		mov ah, COLATTRIB       ; ah = color_attrib
-		mov dx, cx
-		shr dx, 1
-		sal dx, 1
-		sub di, dx		; pox_y -= str_len / 2
-		push cx
+;-------------------------------------
+; Main func
+;-------------------------------------
+Main		    proc
 
-sloop:		lodsb			; al = ds:[si]; ++si
-		stosw			; es:[di] = ah; ++di
-		dec cl
-		cmp cl, 0h
-		jne sloop
+                push bp
+                mov bp, sp
 
-		mov di, SCREENW*(SCREENH/2 - 1)+SCREENW/2-2
-		sub di, dx
-		pop si
-		add si, 02h
-		mov dx, 01h
+                mov ax, VRAMSEGMENT
+                mov es, ax
+                
+                mov di, SCREENW * (SCREENH / 2) + SCREENW / 2
+                mov si, ARGCNT_ADDR		
+                mov byte ptr cl, [si]       ; cx = str_len
+                
+                cmp cl, 0
+                je @@init_default
 
-		call draw_rect
+                mov si, CMDARG_ADDR	        ; si = &cmd_str
+                jmp @@init_end
+     
+@@init_default: mov si, offset DEFAULT_STR	; si = &default_str
+                mov cl, DEFAULT_STR_LEN
 
-		mov ax, 004ch
-		int 21h
+@@init_end:	    mov ah, COLATTRIB           
+                mov dx, cx
+                shr dx, 1h
+                sal dx, 1h
+                sub di, dx		            ; pox_y -= str_len / 2
 
-draw_rect:				; di <- top-left corner
-					; si <- width
-					; dx <- height - 2
-		mov ah, COLATTRIB_BD
-		mov al, 023h
-		
-		push di
-		call draw_hline
+                push di
+                push cx
 
-		pop bx
-		add bx, SCREENW
-		xor cx, cx
-		sub si, 02h
-		sal si, 1
-yloop: 		mov word ptr es:[bx], ax
-		mov word ptr es:[bx]+2[si], ax
-		add bx, SCREENW
-		inc cx
-		cmp cx, dx
-		jne yloop
-		shr si, 1
-		add si, 02h
+                call PrintStr
 
-		mov di, bx
-		call draw_hline
-		
-		ret
+                mov al, 1h
 
-draw_hline:				; di <- start
-					; si <- width
-		xor cx, cx
-xloop:		stosw
-		inc cx
-		cmp cx, si
-		jne xloop
+                mov word ptr di, [bp-2]
+                sub di, B_OFFSET + SCREENW
+                mov cl, 3h
+                xor ch, ch
 
-		ret
+                call VerticalLine
 
-DEFAULT_STR     db 'hello world', CRLF
+                mov word ptr cx, [bp-4]
+                add cx, B_OFFSET
+
+                call HorizontalLine
+
+                mov cx, 3h
+                mov ch, 1h
+
+                call VerticalLine
+
+                mov byte ptr cx, [bp-4]
+                add cx, B_OFFSET
+                mov ch, 1h
+
+                call HorizontalLine
+                
+                add sp, 4h
+                pop bp
+                ret
+Main            endp
+
+;-------------------------------------
+
+
+;-------------------------------------
+; Print string
+; 
+; Entry: DS:SI --> string
+;        ES:DI --> vram addr
+;        CX    =   string length
+; Destr: SI, DI, CX
+;-------------------------------------
+
+PrintStr        proc
+                
+@@loopv:        lodsb			; al = ds:[si]; ++si
+                stosw			; es:[di] = ah; ++di
+                dec cl
+                jnz @@loopv
+
+                ret
+PrintStr        endp
+
+;-------------------------------------
+                
+;-------------------------------------
+; Ouputs vertical line of given length
+;
+; Entry: ES:DI = first line point
+;        AL    = char
+;        AH    = color attribute
+;        CL    = length
+;        CH    = direction
+; Exit:  DI  --> last line point
+; Destr: CL, DX
+;-------------------------------------
+
+VerticalLine    proc
+
+                cmp ch, 0
+                je @@if
+                mov dx, -SCREENW
+                jmp @@endif
+@@if:           mov dx, SCREENW
+@@endif:
+                
+@@loopv:        mov word ptr es:[di], ax  
+                add di, dx
+                dec cl
+                jnz @@loopv
+
+                sub di, dx
+
+                ret
+VerticalLine    endp
+
+;-------------------------------------
+
+;-------------------------------------
+; Ouputs horizontal line of given length
+;
+; Entry: ES:DI = first line point
+;        AL    = char
+;        AH    = color attribute
+;        CL    = length
+;        CH    = direction
+; Exit:  DI  --> last line point
+; Destr: CL, DX 
+;-------------------------------------
+
+HorizontalLine  proc
+
+                cmp ch, 0
+                je @@if
+                mov dx, -2h
+                jmp @@endif
+@@if:           mov dx, 2h
+@@endif:
+                
+@@loopv:        mov word ptr es:[di], ax  
+                add di, dx
+                dec cl
+                jnz @@loopv
+
+                sub di, dx
+
+                ret
+HorizontalLine  endp
+
+;-------------------------------------
 
 end Start
