@@ -17,6 +17,8 @@ COLATTRIB	equ 00000100b
 SCREENH		equ 19h
 SCREENW		equ 2*50h
 B_OFFSET    equ 4h
+CTRL_CHR    equ 2dh         ; '-'
+B_CHR       equ 2h          ; default border charachter
 
 locals @@
 
@@ -32,24 +34,38 @@ Main		    proc
 
                 push bp
                 mov bp, sp
-
-                mov ax, VRAMSEGMENT
-                mov es, ax
                 
-                mov di, SCREENW * (SCREENH / 2) + SCREENW / 2
                 mov si, ARGCNT_ADDR		
-                mov byte ptr cl, [si]       ; cx = str_len
+                mov byte ptr dl, [si]       ; dl = str_len
                 
-                cmp cl, 0
+                cmp dl, 0
                 je @@init_default
 
-                mov si, CMDARG_ADDR	        ; si = &cmd_str
+                push CTRL_CHR
+                push dx
+                push CMDARG_ADDR
+                call StrChr
+                add sp, 6h
+
+                cmp dx, cx
+                je @@b_default
+                mov si, cx
+                add si, CMDARG_ADDR + 1
+                mov byte ptr dl, [si]
+                push dx
+
+@@b_default:    push B_CHR
+
+@@b_end:        mov si, CMDARG_ADDR	        ; si = &cmd_str
                 jmp @@init_end
      
 @@init_default: mov si, offset DEFAULT_STR	; si = &default_str
-                mov cl, DEFAULT_STR_LEN
+                mov cx, DEFAULT_STR_LEN
 
-@@init_end:	    mov ah, COLATTRIB           
+@@init_end:	    mov di, SCREENW * (SCREENH / 2) + SCREENW / 2
+                mov ax, VRAMSEGMENT
+                mov es, ax
+                mov ah, COLATTRIB           
                 mov dx, cx
                 shr dx, 1h
                 sal dx, 1h
@@ -60,16 +76,15 @@ Main		    proc
 
                 call PrintStr
 
-                mov al, 1h
-
-                mov word ptr di, [bp-2]
+                mov byte ptr al, [bp-2]
+                mov word ptr di, [bp-4]
                 sub di, B_OFFSET + SCREENW
                 mov cl, 3h
                 xor ch, ch
 
                 call VerticalLine
 
-                mov word ptr cx, [bp-4]
+                mov word ptr cx, [bp-6]
                 add cx, B_OFFSET
 
                 call HorizontalLine
@@ -79,16 +94,53 @@ Main		    proc
 
                 call VerticalLine
 
-                mov byte ptr cx, [bp-4]
+                mov byte ptr cx, [bp-6]
                 add cx, B_OFFSET
                 mov ch, 1h
 
                 call HorizontalLine
                 
-                add sp, 4h
+                add sp, 6h
                 pop bp
                 ret
 Main            endp
+
+;-------------------------------------
+
+
+;-------------------------------------
+; Find symbol in string
+; Entry: stack[0] --> string  
+;        stack[2]   = string length
+;        stack[4]   = charachter to find
+; Exit:  CX         = charachter position
+; Assum: ES points to string segment
+; Destr: AX, DI
+; Notes: Cdecl
+;-------------------------------------
+
+StrChr          proc
+                
+                push bp
+                mov bp, sp
+
+                mov word ptr di, [bp+4]
+                mov word ptr cx, [bp+6]
+                mov byte ptr al, [bp+8]
+
+                cld                         ; clear direction flag
+
+                repne scasb                 ; while(cx--) if(al == es:[di++]) break;
+                                            ; cx = len - pos
+
+                mov word ptr ax, [bp+6]
+                neg cx
+                add cx, ax
+                dec cx
+
+                pop bp
+                ret
+StrChr          endp
 
 ;-------------------------------------
 
