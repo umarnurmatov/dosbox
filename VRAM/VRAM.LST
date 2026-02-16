@@ -1,4 +1,4 @@
-Turbo Assembler	 Version 4.1	    02/13/26 19:40:25	    Page 1
+Turbo Assembler	 Version 4.1	    02/16/26 23:39:59	    Page 1
 vram.asm
 
 
@@ -23,186 +23,243 @@ vram.asm
      18	      =0019		     SCREENH	     equ 19h
      19	      =00A0		     SCREENW	     equ 2*50h
      20	      =0004		     B_OFFSET	 equ 4h
-     21
-     22				     locals @@
-     23
-     24	0100  E8 0005		     Start:		 call Main
-     25
-     26	0103  B8 004C				     mov ax, 004ch
-     27	0106  CD 21				     int 21h
+     21	      =002F		     CTRL_CHR	 equ 2fh
+     22
+     23	      =0023		     DEF_BORD_CHR equ 023h
+     24
+     25				     locals @@
+     26
+     27	0100  E8 0005		     Start:		 call Main
      28
-     29				     ;-------------------------------------
-     30				     ; Main func
-     31				     ;-------------------------------------
-     32	0108			     Main		 proc
-     33
-     34	0108  55				     push bp
-     35	0109  8B EC				     mov bp, sp
+     29	0103  B8 004C		     Exit:	     mov ax, 004ch
+     30	0106  CD 21				     int 21h
+     31
+     32				     ;-------------------------------------
+     33				     ; Main func
+     34				     ;-------------------------------------
+     35	0108			     Main		 proc
      36
-     37	010B  B8 B800				     mov ax, VRAMSEGMENT
-     38	010E  8E C0				     mov es, ax
+     37	0108  55				     push bp
+     38	0109  8B EC				     mov bp, sp
      39
-     40	0110  BF 07D0				     mov di, SCREENW * (SCREENH	/ 2) + SCREENW / 2
-     41	0113  BE 0080				     mov si, ARGCNT_ADDR
-     42	0116  8A 0C				     mov byte ptr cl, [si]	 ; cx =	str_len
+     40
+     41	010B  BE 0080				     mov si, ARGCNT_ADDR
+     42	010E  8A 0C				     mov byte ptr cl, [si]	 ; cx =	str_len
      43
-     44	0118  80 F9 00				     cmp cl, 0
-     45	011B  74 06				     je	@@init_default
-     46
-     47	011D  BE 0081				     mov si, CMDARG_ADDR	     ; si = &cmd_str
-     48	0120  EB 06 90				     jmp @@init_end
-     49
-     50	0123  BE 0000r		     @@init_default: mov si, offset DEFAULT_STR	     ; si = &default_str
-     51	0126  B1 0B				     mov cl, DEFAULT_STR_LEN
-     52
-     53	0128  B4 04		     @@init_end:	 mov ah, COLATTRIB
-     54	012A  8B D1				     mov dx, cx
-     55	012C  D1 EA				     shr dx, 1h
-     56	012E  D1 E2				     sal dx, 1h
-     57	0130  2B FA				     sub di, dx				 ; pox_y -= str_len / 2
-Turbo Assembler	 Version 4.1	    02/13/26 19:40:25	    Page 2
+     44	0110  E3 F1				     jcxz Exit
+     45
+     46	0112  50 55 8B EC C7 46	02+		     push CTRL_CHR
+     47	      002F 5D
+     48	011C  51				     push cx
+     49	011D  50 55 8B EC C7 46	02+		     push CMDARG_ADDR
+     50	      0081 5D
+     51	0127  E8 006A				     call StrChr
+     52	012A  83 C4 06				     add sp, 6h
+     53
+     54	012D  8A 04				     mov byte ptr al, [si]
+     55	012F  3B C1				     cmp ax, cx
+     56	0131  75 0D				     jne @@else
+     57	0133  50 55 8B EC C7 46	02+		     push DEF_BORD_CHR
+Turbo Assembler	 Version 4.1	    02/16/26 23:39:59	    Page 2
 vram.asm
 
 
 
-     58
-     59	0132  57				     push di
-     60	0133  51				     push cx
-     61
-     62	0134  E8 0031				     call PrintStr
-     63
-     64	0137  B0 01				     mov al, 1h
-     65
-     66	0139  8B 7E FE				     mov word ptr di, [bp-2]
-     67	013C  81 EF 00A4			     sub di, B_OFFSET +	SCREENW
-     68	0140  B1 03				     mov cl, 3h
-     69	0142  32 ED				     xor ch, ch
-     70
-     71	0144  E8 0028				     call VerticalLine
-     72
-     73	0147  8B 4E FC				     mov word ptr cx, [bp-4]
-     74	014A  83 C1 04				     add cx, B_OFFSET
+     58	      0023 5D
+     59	013D  EB 0A 90				     jmp @@if_end
+     60	0140  BF 0081		     @@else:	     mov di, CMDARG_ADDR
+     61	0143  03 F9				     add di, cx
+     62	0145  8A 05				     mov byte ptr al, [di]
+     63	0147  49				     dec cx
+     64	0148  50				     push ax
+     65	0149			     @@if_end:
+     66	0149  BE 0081				     mov si, CMDARG_ADDR
+     67	014C  BF 07D0				     mov di, SCREENW * (SCREENH	/ 2) + SCREENW / 2
+     68	014F  B8 B800				     mov ax, VRAMSEGMENT
+     69	0152  8E C0				     mov es, ax
+     70	0154  B4 04				     mov ah, COLATTRIB
+     71	0156  8B D1				     mov dx, cx
+     72	0158  D1 EA				     shr dx, 1h
+     73	015A  D1 E2				     sal dx, 1h
+     74	015C  2B FA				     sub di, dx				 ; pox_y -= str_len / 2
      75
-     76	014D  E8 0039				     call HorizontalLine
-     77
-     78	0150  B9 0003				     mov cx, 3h
-     79	0153  B5 01				     mov ch, 1h
+     76	015E  57				     push di
+     77	015F  51				     push cx
+     78
+     79	0160  E8 0049				     call PrintStr
      80
-     81	0155  E8 0017				     call VerticalLine
-     82
-     83	0158  8B 4E FC				     mov byte ptr cx, [bp-4]
-     84	015B  83 C1 04				     add cx, B_OFFSET
-     85	015E  B5 01				     mov ch, 1h
+     81	0163  8A 46 FE				     mov byte ptr al, [bp-2]
+     82	0166  8B 7E FC				     mov word ptr di, [bp-4]
+     83	0169  81 EF 00A4			     sub di, B_OFFSET +	SCREENW
+     84	016D  B1 03				     mov cl, 3h
+     85	016F  32 ED				     xor ch, ch
      86
-     87	0160  E8 0026				     call HorizontalLine
+     87	0171  E8 003F				     call VerticalLine
      88
-     89	0163  83 C4 04				     add sp, 4h
-     90	0166  5D				     pop bp
-     91	0167  C3				     ret
-     92	0168			     Main	     endp
+     89	0174  8B 4E FA				     mov word ptr cx, [bp-6]
+     90	0177  80 C1 04				     add cl, B_OFFSET
+     91
+     92	017A  E8 0050				     call HorizontalLine
      93
-     94				     ;-------------------------------------
-     95
+     94	017D  B1 03				     mov cl, 3h
+     95	017F  B5 01				     mov ch, 1h
      96
-     97				     ;-------------------------------------
-     98				     ; Print string
-     99				     ;
-    100				     ; Entry: DS:SI -->	string
-    101				     ;	      ES:DI -->	vram addr
-    102				     ;	      CX    =	string length
-    103				     ; Destr: SI, DI, CX
-    104				     ;-------------------------------------
-    105
-    106	0168			     PrintStr	     proc
-    107
-    108	0168  AC		     @@loopv:	     lodsb		     ; al = ds:[si]; ++si
-    109	0169  AB				     stosw		     ; es:[di] = ah; ++di
-    110	016A  FE C9				     dec cl
-    111	016C  75 FA				     jnz @@loopv
+     97	0181  E8 002F				     call VerticalLine
+     98
+     99	0184  8B 4E FA				     mov byte ptr cx, [bp-6]
+    100	0187  80 C1 04				     add cl, B_OFFSET
+    101	018A  B5 01				     mov ch, 1h
+    102
+    103	018C  E8 003E				     call HorizontalLine
+    104
+    105	018F  83 C4 06				     add sp, 6h
+    106	0192  5D				     pop bp
+    107	0193  C3				     ret
+    108	0194			     Main	     endp
+    109
+    110				     ;-------------------------------------
+    111
     112
-    113	016E  C3				     ret
-    114	016F			     PrintStr	     endp
-Turbo Assembler	 Version 4.1	    02/13/26 19:40:25	    Page 3
+    113				     ;-------------------------------------
+    114				     ; Find symbol in string
+Turbo Assembler	 Version 4.1	    02/16/26 23:39:59	    Page 3
 vram.asm
 
 
 
-    115
-    116				     ;-------------------------------------
-    117
-    118				     ;-------------------------------------
-    119				     ; Ouputs vertical line of given length
-    120				     ;
-    121				     ; Entry: ES:DI = first line point
-    122				     ;	      AL    = char
-    123				     ;	      AH    = color attribute
-    124				     ;	      CL    = length
-    125				     ;	      CH    = direction
-    126				     ; Exit:  DI  --> last line	point
-    127				     ; Destr: CX
-    128				     ;-------------------------------------
-    129
-    130	016F			     VerticalLine    proc
-    131
-    132	016F  80 FD 00				     cmp ch, 0
-    133	0172  74 06				     je	@@if
-    134	0174  BA FF60				     mov dx, -SCREENW
-    135	0177  EB 04 90				     jmp @@endif
-    136	017A  BA 00A0		     @@if:	     mov dx, SCREENW
-    137	017D			     @@endif:
-    138
-    139	017D  26: 89 05		     @@loopv:	     mov word ptr es:[di], ax
-    140	0180  03 FA				     add di, dx
-    141	0182  FE C9				     dec cl
-    142	0184  75 F7				     jnz @@loopv
-    143
-    144	0186  2B FA				     sub di, dx
+    115				     ; Entry: stack[0] --> string
+    116				     ;	      stack[2]	 = string length
+    117				     ;	      stack[4]	 = charachter to find
+    118				     ; Exit:  CX	 = charachter position
+    119				     ; Assum: ES points	to string segment
+    120				     ; Destr: AX, DI
+    121				     ; Notes: Cdecl
+    122				     ;-------------------------------------
+    123
+    124	0194			     StrChr	     proc
+    125
+    126	0194  55				     push bp
+    127	0195  8B EC				     mov bp, sp
+    128
+    129	0197  8B 7E 04				     mov word ptr di, [bp+4]
+    130	019A  8B 4E 06				     mov word ptr cx, [bp+6]
+    131	019D  8A 46 08				     mov byte ptr al, [bp+8]
+    132
+    133	01A0  FC				     cld			 ; clear direction flag
+    134
+    135	01A1  F2> AE				     repne scasb		 ; while(cx--) if(al ==	es:[di++]) break;
+    136										 ; cx =	len - pos
+    137
+    138	01A3  8B 46 06				     mov word ptr ax, [bp+6]
+    139	01A6  F7 D9				     neg cx
+    140	01A8  03 C8				     add cx, ax
+    141
+    142	01AA  5D				     pop bp
+    143	01AB  C3				     ret
+    144	01AC			     StrChr	     endp
     145
-    146	0188  C3				     ret
-    147	0189			     VerticalLine    endp
+    146				     ;-------------------------------------
+    147
     148
     149				     ;-------------------------------------
-    150
-    151				     ;-------------------------------------
-    152				     ; Ouputs horizontal line of given length
-    153				     ;
-    154				     ; Entry: ES:DI = first line point
-    155				     ;	      AL    = char
-    156				     ;	      AH    = color attribute
-    157				     ;	      CL    = length
-    158				     ;	      CH    = direction
-    159				     ; Exit:  DI  --> last line	point
-    160				     ; Destr: CL, DX
-    161				     ;-------------------------------------
-    162
-    163	0189			     HorizontalLine  proc
+    150				     ; Print string
+    151				     ;
+    152				     ; Entry: DS:SI -->	string
+    153				     ;	      ES:DI -->	vram addr
+    154				     ;	      CX    =	string length
+    155				     ; Destr: SI, DI, CX
+    156				     ;-------------------------------------
+    157
+    158	01AC			     PrintStr	     proc
+    159
+    160	01AC  AC		     @@loopv:	     lodsb		     ; al = ds:[si]; ++si
+    161	01AD  AB				     stosw		     ; es:[di] = ah; ++di
+    162	01AE  FE C9				     dec cl
+    163	01B0  75 FA				     jnz @@loopv
     164
-    165	0189  80 FD 00				     cmp ch, 0
-    166	018C  74 06				     je	@@if
-    167	018E  BA FFFE				     mov dx, -2h
-    168	0191  EB 04 90				     jmp @@endif
-    169	0194  BA 0002		     @@if:	     mov dx, 2h
-    170	0197			     @@endif:
-    171
-Turbo Assembler	 Version 4.1	    02/13/26 19:40:25	    Page 4
+    165	01B2  C3				     ret
+    166	01B3			     PrintStr	     endp
+    167
+    168				     ;-------------------------------------
+    169
+    170				     ;-------------------------------------
+    171				     ; Ouputs vertical line of given length
+Turbo Assembler	 Version 4.1	    02/16/26 23:39:59	    Page 4
 vram.asm
 
 
 
-    172	0197  26: 89 05		     @@loopv:	     mov word ptr es:[di], ax
-    173	019A  03 FA				     add di, dx
-    174	019C  FE C9				     dec cl
-    175	019E  75 F7				     jnz @@loopv
-    176
-    177	01A0  2B FA				     sub di, dx
-    178
-    179	01A2  C3				     ret
-    180	01A3			     HorizontalLine  endp
+    172				     ;
+    173				     ; Entry: ES:DI = first line point
+    174				     ;	      AL    = char
+    175				     ;	      AH    = color attribute
+    176				     ;	      CL    = length
+    177				     ;	      CH    = direction
+    178				     ; Exit:  DI  --> last line	point
+    179				     ; Destr: CL, DX
+    180				     ;-------------------------------------
     181
-    182				     ;-------------------------------------
+    182	01B3			     VerticalLine    proc
     183
-    184				     end Start
-Turbo Assembler	 Version 4.1	    02/13/26 19:40:25	    Page 5
+    184	01B3  80 FD 00				     cmp ch, 0
+    185	01B6  74 06				     je	@@if
+    186	01B8  BA FF60				     mov dx, -SCREENW
+    187	01BB  EB 04 90				     jmp @@endif
+    188	01BE  BA 00A0		     @@if:	     mov dx, SCREENW
+    189	01C1			     @@endif:
+    190
+    191	01C1  26: 89 05		     @@loopv:	     mov word ptr es:[di], ax
+    192	01C4  03 FA				     add di, dx
+    193	01C6  FE C9				     dec cl
+    194	01C8  75 F7				     jnz @@loopv
+    195
+    196	01CA  2B FA				     sub di, dx
+    197
+    198	01CC  C3				     ret
+    199	01CD			     VerticalLine    endp
+    200
+    201				     ;-------------------------------------
+    202
+    203				     ;-------------------------------------
+    204				     ; Ouputs horizontal line of given length
+    205				     ;
+    206				     ; Entry: ES:DI = first line point
+    207				     ;	      AL    = char
+    208				     ;	      AH    = color attribute
+    209				     ;	      CL    = length
+    210				     ;	      CH    = direction
+    211				     ; Exit:  DI  --> last line	point
+    212				     ; Destr: CL, DX
+    213				     ;-------------------------------------
+    214
+    215	01CD			     HorizontalLine  proc
+    216
+    217	01CD  80 FD 00				     cmp ch, 0
+    218	01D0  74 06				     je	@@if
+    219	01D2  BA FFFE				     mov dx, -2h
+    220	01D5  EB 04 90				     jmp @@endif
+    221	01D8  BA 0002		     @@if:	     mov dx, 2h
+    222	01DB			     @@endif:
+    223
+    224	01DB  26: 89 05		     @@loopv:	     mov word ptr es:[di], ax
+    225	01DE  03 FA				     add di, dx
+    226	01E0  FE C9				     dec cl
+    227	01E2  75 F7				     jnz @@loopv
+    228
+Turbo Assembler	 Version 4.1	    02/16/26 23:39:59	    Page 5
+vram.asm
+
+
+
+    229	01E4  2B FA				     sub di, dx
+    230
+    231	01E6  C3				     ret
+    232	01E7			     HorizontalLine  endp
+    233
+    234				     ;-------------------------------------
+    235
+    236				     end Start
+Turbo Assembler	 Version 4.1	    02/16/26 23:39:59	    Page 6
 Symbol Table
 
 
@@ -210,20 +267,20 @@ Symbol Table
 
 Symbol Name			  Type	 Value
 
-??DATE				  Text	 "02/13/26"
+??DATE				  Text	 "02/16/26"
 ??FILENAME			  Text	 "vram	  "
-??TIME				  Text	 "19:40:25"
+??TIME				  Text	 "23:39:59"
 ??VERSION			  Number 040A
 @32BIT				  Text	 0
-@@ENDIF				  Near	 DGROUP:017D
-@@ENDIF				  Near	 DGROUP:0197
-@@IF				  Near	 DGROUP:017A
-@@IF				  Near	 DGROUP:0194
-@@INIT_DEFAULT			  Near	 DGROUP:0123
-@@INIT_END			  Near	 DGROUP:0128
-@@LOOPV				  Near	 DGROUP:0168
-@@LOOPV				  Near	 DGROUP:017D
-@@LOOPV				  Near	 DGROUP:0197
+@@ELSE				  Near	 DGROUP:0140
+@@ENDIF				  Near	 DGROUP:01C1
+@@ENDIF				  Near	 DGROUP:01DB
+@@IF				  Near	 DGROUP:01BE
+@@IF				  Near	 DGROUP:01D8
+@@IF_END			  Near	 DGROUP:0149
+@@LOOPV				  Near	 DGROUP:01AC
+@@LOOPV				  Near	 DGROUP:01C1
+@@LOOPV				  Near	 DGROUP:01DB
 @CODE				  Text	 DGROUP
 @CODESIZE			  Text	 0
 @CPU				  Text	 0101H
@@ -240,20 +297,24 @@ B_OFFSET			  Number 0004
 CMDARG_ADDR			  Number 0081
 COLATTRIB			  Number 0004
 CRLF				  Text	 0dh, 0ah
+CTRL_CHR			  Number 002F
 DEFAULT_STR			  Byte	 DGROUP:0000
 DEFAULT_STR_LEN			  Number 000B
-HORIZONTALLINE			  Near	 DGROUP:0189
+DEF_BORD_CHR			  Number 0023
+EXIT				  Near	 DGROUP:0103
+HORIZONTALLINE			  Near	 DGROUP:01CD
 MAIN				  Near	 DGROUP:0108
-PRINTSTR			  Near	 DGROUP:0168
+PRINTSTR			  Near	 DGROUP:01AC
 SCREENH				  Number 0019
 SCREENW				  Number 00A0
 START				  Near	 DGROUP:0100
-VERTICALLINE			  Near	 DGROUP:016F
+STRCHR				  Near	 DGROUP:0194
+VERTICALLINE			  Near	 DGROUP:01B3
 VRAMSEGMENT			  Number B800
 
 Groups & Segments		  Bit Size Align  Combine Class
 
 DGROUP				  Group
   _DATA				  16  000D Word	  Public  DATA
-  _TEXT				  16  01A3 Word	  Public  CODE
+  _TEXT				  16  01E7 Word	  Public  CODE
 
