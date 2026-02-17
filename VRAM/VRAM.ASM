@@ -106,6 +106,7 @@ Main            endp
 ;-------------------------------------
 
 
+
 ;-------------------------------------
 ; Find symbol in string
 ; Entry: stack[0] --> string  
@@ -160,6 +161,36 @@ PrintStr        proc
 
                 ret
 PrintStr        endp
+
+;-------------------------------------
+
+;-------------------------------------
+; Draw rectangular border
+; Entry: stack[0] = top left corner
+;        stack[2] = char
+;        stack[3] = color attribute
+;        stack[4] = height
+;        stack[6] = width
+; Exit:  none
+; Assum: ES points to VRAM segment
+; Destr: AX, CX, DX, DI
+; Note:  Pascal
+;-------------------------------------
+
+RectBorder      proc
+                
+                push bp
+                mov bp, sp
+
+                mov word ptr di, [bp+4] 
+                mov word ptr ax, [bp+6]
+                mov byte ptr cl, [bp+8]
+
+                ; TODO дописать
+                
+                pop bp
+                ret
+RectBorder      endp
 
 ;-------------------------------------
                 
