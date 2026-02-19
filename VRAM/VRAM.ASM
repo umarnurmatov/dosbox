@@ -80,23 +80,7 @@ Main		    proc
                 mov cl, 3h
                 xor ch, ch
 
-                call VerticalLine
-
-                mov word ptr cx, [bp-6]
-                add cl, B_OFFSET
-
-                call HorizontalLine
-
-                mov cl, 3h
-                mov ch, 1h
-
-                call VerticalLine
-
-                mov byte ptr cx, [bp-6]
-                add cl, B_OFFSET
-                mov ch, 1h
-
-                call HorizontalLine
+                call RectBorder
                 
                 add sp, 6h
                 pop bp
@@ -170,7 +154,7 @@ PrintStr        endp
 ;        stack[2] = char
 ;        stack[3] = color attribute
 ;        stack[4] = height
-;        stack[6] = width
+;        stack[5] = width
 ; Exit:  none
 ; Assum: ES points to VRAM segment
 ; Destr: AX, CX, DX, DI
@@ -185,9 +169,26 @@ RectBorder      proc
                 mov word ptr di, [bp+4] 
                 mov word ptr ax, [bp+6]
                 mov byte ptr cl, [bp+8]
-
-                ; TODO дописать
+                xor ch, ch
                 
+                call VerticalLine
+
+                mov byte ptr cl, [bp+9]
+                add cl, B_OFFSET
+
+                call HorizontalLine
+
+                mov byte ptr cl, [bp+8] 
+                mov ch, 1h
+
+                call VerticalLine
+
+                mov byte ptr cl, [bp+9]
+                add cl, B_OFFSET
+
+                call HorizontalLine
+                
+                add sp, 6h
                 pop bp
                 ret
 RectBorder      endp
