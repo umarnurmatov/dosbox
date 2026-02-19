@@ -1,4 +1,4 @@
-Turbo Assembler	 Version 4.1	    02/19/26 22:42:50	    Page 1
+Turbo Assembler	 Version 4.1	    02/19/26 23:12:01	    Page 1
 vram.asm
 
 
@@ -53,14 +53,14 @@ vram.asm
      48	011C  51				     push cx
      49	011D  50 55 8B EC C7 46	02+		     push CMDARG_ADDR
      50	      0081 5D
-     51	0127  E8 004F				     call StrChr
+     51	0127  E8 0048				     call StrChr
      52	012A  83 C4 06				     add sp, 6h
      53
      54	012D  8A 04				     mov byte ptr al, [si]
      55	012F  3B C1				     cmp ax, cx
      56	0131  75 0D				     jne @@else
      57	0133  50 55 8B EC C7 46	02+		     push DEF_BORD_CHR
-Turbo Assembler	 Version 4.1	    02/19/26 22:42:50	    Page 2
+Turbo Assembler	 Version 4.1	    02/19/26 23:12:01	    Page 2
 vram.asm
 
 
@@ -86,212 +86,214 @@ vram.asm
      76	015E  57				     push di
      77	015F  51				     push cx
      78
-     79	0160  E8 002E				     call PrintStr
+     79	0160  E8 0027				     call PrintStr
      80
-     81	0163  8A 46 FE				     mov byte ptr al, [bp-2]
-     82	0166  8B 7E FC				     mov word ptr di, [bp-4]
-     83	0169  81 EF 00A4			     sub di, B_OFFSET +	SCREENW
-     84	016D  B1 03				     mov cl, 3h
-     85	016F  32 ED				     xor ch, ch
-     86
-     87	0171  E8 0024				     call RectBorder
-     88
-     89	0174  83 C4 06				     add sp, 6h
-     90	0177  5D				     pop bp
-     91	0178  C3				     ret
-     92	0179			     Main	     endp
-     93
-     94				     ;-------------------------------------
+     81	0163  59				     pop cx
+     82	0164  5F				     pop di
+     83	0165  58				     pop ax
+     84	0166  81 EF 00A4			     sub di, B_OFFSET +	SCREENW
+     85
+     86	016A  57				     push di
+     87	016B  50				     push ax
+     88	016C  51				     push cx
+     89
+     90	016D  E8 0021				     call RectBorder
+     91
+     92	0170  5D				     pop bp
+     93	0171  C3				     ret
+     94	0172			     Main	     endp
      95
-     96
+     96				     ;-------------------------------------
      97
-     98				     ;-------------------------------------
-     99				     ; Find symbol in string
-    100				     ; Entry: stack[0] --> string
-    101				     ;	      stack[2]	 = string length
-    102				     ;	      stack[4]	 = charachter to find
-    103				     ; Exit:  CX	 = charachter position
-    104				     ; Assum: ES points	to string segment
-    105				     ; Destr: AX, DI
-    106				     ; Notes: Cdecl
-    107				     ;-------------------------------------
-    108
-    109	0179			     StrChr	     proc
+     98
+     99
+    100				     ;-------------------------------------
+    101				     ; Find symbol in string
+    102				     ; Entry: stack[0] --> string
+    103				     ;	      stack[2]	 = string length
+    104				     ;	      stack[4]	 = charachter to find
+    105				     ; Exit:  CX	 = charachter position
+    106				     ; Assum: ES points	to string segment
+    107				     ; Destr: AX, DI
+    108				     ; Notes: Cdecl
+    109				     ;-------------------------------------
     110
-    111	0179  55				     push bp
-    112	017A  8B EC				     mov bp, sp
-    113
-    114	017C  8B 7E 04				     mov word ptr di, [bp+4]
-Turbo Assembler	 Version 4.1	    02/19/26 22:42:50	    Page 3
+    111	0172			     StrChr	     proc
+    112
+    113	0172  55				     push bp
+    114	0173  8B EC				     mov bp, sp
+Turbo Assembler	 Version 4.1	    02/19/26 23:12:01	    Page 3
 vram.asm
 
 
 
-    115	017F  8B 4E 06				     mov word ptr cx, [bp+6]
-    116	0182  8A 46 08				     mov byte ptr al, [bp+8]
-    117
-    118	0185  FC				     cld			 ; clear direction flag
+    115
+    116	0175  8B 7E 04				     mov word ptr di, [bp+4]
+    117	0178  8B 4E 06				     mov word ptr cx, [bp+6]
+    118	017B  8A 46 08				     mov byte ptr al, [bp+8]
     119
-    120	0186  F2> AE				     repne scasb		 ; while(cx--) if(al ==	es:[di++]) break;
-    121										 ; cx =	len - pos
-    122
-    123	0188  8B 46 06				     mov word ptr ax, [bp+6]
-    124	018B  F7 D9				     neg cx
-    125	018D  03 C8				     add cx, ax
-    126
-    127	018F  5D				     pop bp
-    128	0190  C3				     ret
-    129	0191			     StrChr	     endp
-    130
-    131				     ;-------------------------------------
+    120	017E  FC				     cld			 ; clear direction flag
+    121
+    122	017F  F2> AE				     repne scasb		 ; while(cx--) if(al ==	es:[di++]) break;
+    123										 ; cx =	len - pos
+    124
+    125	0181  8B 46 06				     mov word ptr ax, [bp+6]
+    126	0184  F7 D9				     neg cx
+    127	0186  03 C8				     add cx, ax
+    128
+    129	0188  5D				     pop bp
+    130	0189  C3				     ret
+    131	018A			     StrChr	     endp
     132
-    133
-    134				     ;-------------------------------------
-    135				     ; Print string
-    136				     ;
-    137				     ; Entry: DS:SI -->	string
-    138				     ;	      ES:DI -->	vram addr
-    139				     ;	      CX    =	string length
-    140				     ; Destr: SI, DI, CX
-    141				     ;-------------------------------------
-    142
-    143	0191			     PrintStr	     proc
+    133				     ;-------------------------------------
+    134
+    135
+    136				     ;-------------------------------------
+    137				     ; Print string
+    138				     ;
+    139				     ; Entry: DS:SI -->	string
+    140				     ;	      ES:DI -->	vram addr
+    141				     ;	      CX    =	string length
+    142				     ; Destr: SI, DI, CX
+    143				     ;-------------------------------------
     144
-    145	0191  AC		     @@loopv:	     lodsb		     ; al = ds:[si]; ++si
-    146	0192  AB				     stosw		     ; es:[di] = ah; ++di
-    147	0193  FE C9				     dec cl
-    148	0195  75 FA				     jnz @@loopv
-    149
-    150	0197  C3				     ret
-    151	0198			     PrintStr	     endp
-    152
-    153				     ;-------------------------------------
+    145	018A			     PrintStr	     proc
+    146
+    147	018A  AC		     @@loopv:	     lodsb		     ; al = ds:[si]; ++si
+    148	018B  AB				     stosw		     ; es:[di] = ah; ++di
+    149	018C  FE C9				     dec cl
+    150	018E  75 FA				     jnz @@loopv
+    151
+    152	0190  C3				     ret
+    153	0191			     PrintStr	     endp
     154
     155				     ;-------------------------------------
-    156				     ; Draw rectangular	border
-    157				     ; Entry: stack[0] = top left corner
-    158				     ;	      stack[2] = char
-    159				     ;	      stack[3] = color attribute
-    160				     ;	      stack[4] = height
-    161				     ;	      stack[5] = width
-    162				     ; Exit:  none
-    163				     ; Assum: ES points	to VRAM	segment
-    164				     ; Destr: AX, CX, DX, DI
-    165				     ; Note:  Pascal
-    166				     ;-------------------------------------
-    167
-    168	0198			     RectBorder	     proc
+    156
+    157				     ;-------------------------------------
+    158				     ; Draw rectangular	border
+    159				     ; Entry: stack[0] = top left corner
+    160				     ;	      stack[2] = char
+    161				     ;	      stack[3] = color attribute
+    162				     ;	      stack[4] = height
+    163				     ;	      stack[5] = width
+    164				     ; Exit:  none
+    165				     ; Assum: ES points	to VRAM	segment
+    166				     ; Destr: AX, CX, DX, DI
+    167				     ; Note:  Pascal
+    168				     ;-------------------------------------
     169
-    170	0198  55				     push bp
-    171	0199  8B EC				     mov bp, sp
-Turbo Assembler	 Version 4.1	    02/19/26 22:42:50	    Page 4
+    170	0191			     RectBorder	     proc
+    171
+Turbo Assembler	 Version 4.1	    02/19/26 23:12:01	    Page 4
 vram.asm
 
 
 
-    172
-    173	019B  8B 7E 04				     mov word ptr di, [bp+4]
-    174	019E  8B 46 06				     mov word ptr ax, [bp+6]
-    175	01A1  8A 4E 08				     mov byte ptr cl, [bp+8]
-    176	01A4  32 ED				     xor ch, ch
-    177
-    178	01A6  E8 001F				     call VerticalLine
+    172	0191  55				     push bp
+    173	0192  8B EC				     mov bp, sp
+    174
+    175	0194  8B 4E 04				     mov word ptr cx, [bp+4]
+    176	0197  8B 46 06				     mov word ptr ax, [bp+6]
+    177	019A  8B 7E 08				     mov word ptr di, [bp+8]
+    178	019D  32 ED				     xor ch, ch
     179
-    180	01A9  8A 4E 09				     mov byte ptr cl, [bp+9]
-    181	01AC  80 C1 04				     add cl, B_OFFSET
-    182
-    183	01AF  E8 0030				     call HorizontalLine
+    180	019F  E8 001F				     call VerticalLine
+    181
+    182	01A2  8A 4E 09				     mov byte ptr cl, [bp+9]
+    183	01A5  80 C1 04				     add cl, B_OFFSET
     184
-    185	01B2  8A 4E 08				     mov byte ptr cl, [bp+8]
-    186	01B5  B5 01				     mov ch, 1h
-    187
-    188	01B7  E8 000E				     call VerticalLine
+    185	01A8  E8 0030				     call HorizontalLine
+    186
+    187	01AB  8A 4E 08				     mov byte ptr cl, [bp+8]
+    188	01AE  B5 01				     mov ch, 1h
     189
-    190	01BA  8A 4E 09				     mov byte ptr cl, [bp+9]
-    191	01BD  80 C1 04				     add cl, B_OFFSET
-    192
-    193	01C0  E8 001F				     call HorizontalLine
+    190	01B0  E8 000E				     call VerticalLine
+    191
+    192	01B3  8A 4E 09				     mov byte ptr cl, [bp+9]
+    193	01B6  80 C1 04				     add cl, B_OFFSET
     194
-    195	01C3  83 C4 06				     add sp, 6h
-    196	01C6  5D				     pop bp
-    197	01C7  C3				     ret
-    198	01C8			     RectBorder	     endp
-    199
-    200				     ;-------------------------------------
+    195	01B9  E8 001F				     call HorizontalLine
+    196
+    197	01BC  83 C4 06				     add sp, 6h
+    198	01BF  5D				     pop bp
+    199	01C0  C3				     ret
+    200	01C1			     RectBorder	     endp
     201
     202				     ;-------------------------------------
-    203				     ; Ouputs vertical line of given length
-    204				     ;
-    205				     ; Entry: ES:DI = first line point
-    206				     ;	      AL    = char
-    207				     ;	      AH    = color attribute
-    208				     ;	      CL    = length
-    209				     ;	      CH    = direction
-    210				     ; Exit:  DI  --> last line	point
-    211				     ; Destr: CL, DX
-    212				     ;-------------------------------------
-    213
-    214	01C8			     VerticalLine    proc
+    203
+    204				     ;-------------------------------------
+    205				     ; Ouputs vertical line of given length
+    206				     ;
+    207				     ; Entry: ES:DI = first line point
+    208				     ;	      AL    = char
+    209				     ;	      AH    = color attribute
+    210				     ;	      CL    = length
+    211				     ;	      CH    = direction
+    212				     ; Exit:  DI  --> last line	point
+    213				     ; Destr: CL, DX
+    214				     ;-------------------------------------
     215
-    216	01C8  80 FD 00				     cmp ch, 0
-    217	01CB  74 06				     je	@@if
-    218	01CD  BA FF60				     mov dx, -SCREENW
-    219	01D0  EB 04 90				     jmp @@endif
-    220	01D3  BA 00A0		     @@if:	     mov dx, SCREENW
-    221	01D6			     @@endif:
-    222
-    223	01D6  26: 89 05		     @@loopv:	     mov word ptr es:[di], ax
-    224	01D9  03 FA				     add di, dx
-    225	01DB  FE C9				     dec cl
-    226	01DD  75 F7				     jnz @@loopv
-    227
-    228	01DF  2B FA				     sub di, dx
-Turbo Assembler	 Version 4.1	    02/19/26 22:42:50	    Page 5
+    216	01C1			     VerticalLine    proc
+    217
+    218	01C1  80 FD 00				     cmp ch, 0
+    219	01C4  74 06				     je	@@if
+    220	01C6  BA FF60				     mov dx, -SCREENW
+    221	01C9  EB 04 90				     jmp @@endif
+    222	01CC  BA 00A0		     @@if:	     mov dx, SCREENW
+    223	01CF			     @@endif:
+    224
+    225	01CF  26: 89 05		     @@loopv:	     mov word ptr es:[di], ax
+    226	01D2  03 FA				     add di, dx
+    227	01D4  FE C9				     dec cl
+    228	01D6  75 F7				     jnz @@loopv
+Turbo Assembler	 Version 4.1	    02/19/26 23:12:01	    Page 5
 vram.asm
 
 
 
     229
-    230	01E1  C3				     ret
-    231	01E2			     VerticalLine    endp
-    232
-    233				     ;-------------------------------------
+    230	01D8  2B FA				     sub di, dx
+    231
+    232	01DA  C3				     ret
+    233	01DB			     VerticalLine    endp
     234
     235				     ;-------------------------------------
-    236				     ; Ouputs horizontal line of given length
-    237				     ;
-    238				     ; Entry: ES:DI = first line point
-    239				     ;	      AL    = char
-    240				     ;	      AH    = color attribute
-    241				     ;	      CL    = length
-    242				     ;	      CH    = direction
-    243				     ; Exit:  DI  --> last line	point
-    244				     ; Destr: CL, DX
-    245				     ;-------------------------------------
-    246
-    247	01E2			     HorizontalLine  proc
+    236
+    237				     ;-------------------------------------
+    238				     ; Ouputs horizontal line of given length
+    239				     ;
+    240				     ; Entry: ES:DI = first line point
+    241				     ;	      AL    = char
+    242				     ;	      AH    = color attribute
+    243				     ;	      CL    = length
+    244				     ;	      CH    = direction
+    245				     ; Exit:  DI  --> last line	point
+    246				     ; Destr: CL, DX
+    247				     ;-------------------------------------
     248
-    249	01E2  80 FD 00				     cmp ch, 0
-    250	01E5  74 06				     je	@@if
-    251	01E7  BA FFFE				     mov dx, -2h
-    252	01EA  EB 04 90				     jmp @@endif
-    253	01ED  BA 0002		     @@if:	     mov dx, 2h
-    254	01F0			     @@endif:
-    255
-    256	01F0  26: 89 05		     @@loopv:	     mov word ptr es:[di], ax
-    257	01F3  03 FA				     add di, dx
-    258	01F5  FE C9				     dec cl
-    259	01F7  75 F7				     jnz @@loopv
-    260
-    261	01F9  2B FA				     sub di, dx
+    249	01DB			     HorizontalLine  proc
+    250
+    251	01DB  80 FD 00				     cmp ch, 0
+    252	01DE  74 06				     je	@@if
+    253	01E0  BA FFFE				     mov dx, -2h
+    254	01E3  EB 04 90				     jmp @@endif
+    255	01E6  BA 0002		     @@if:	     mov dx, 2h
+    256	01E9			     @@endif:
+    257
+    258	01E9  26: 89 05		     @@loopv:	     mov word ptr es:[di], ax
+    259	01EC  03 FA				     add di, dx
+    260	01EE  FE C9				     dec cl
+    261	01F0  75 F7				     jnz @@loopv
     262
-    263	01FB  C3				     ret
-    264	01FC			     HorizontalLine  endp
-    265
-    266				     ;-------------------------------------
+    263	01F2  2B FA				     sub di, dx
+    264
+    265	01F4  C3				     ret
+    266	01F5			     HorizontalLine  endp
     267
-    268				     end Start
-Turbo Assembler	 Version 4.1	    02/19/26 22:42:50	    Page 6
+    268				     ;-------------------------------------
+    269
+    270				     end Start
+Turbo Assembler	 Version 4.1	    02/19/26 23:12:01	    Page 6
 Symbol Table
 
 
@@ -301,18 +303,18 @@ Symbol Name			  Type	 Value
 
 ??DATE				  Text	 "02/19/26"
 ??FILENAME			  Text	 "vram	  "
-??TIME				  Text	 "22:42:49"
+??TIME				  Text	 "23:12:01"
 ??VERSION			  Number 040A
 @32BIT				  Text	 0
 @@ELSE				  Near	 DGROUP:0140
-@@ENDIF				  Near	 DGROUP:01D6
-@@ENDIF				  Near	 DGROUP:01F0
-@@IF				  Near	 DGROUP:01D3
-@@IF				  Near	 DGROUP:01ED
+@@ENDIF				  Near	 DGROUP:01CF
+@@ENDIF				  Near	 DGROUP:01E9
+@@IF				  Near	 DGROUP:01CC
+@@IF				  Near	 DGROUP:01E6
 @@IF_END			  Near	 DGROUP:0149
-@@LOOPV				  Near	 DGROUP:0191
-@@LOOPV				  Near	 DGROUP:01D6
-@@LOOPV				  Near	 DGROUP:01F0
+@@LOOPV				  Near	 DGROUP:018A
+@@LOOPV				  Near	 DGROUP:01CF
+@@LOOPV				  Near	 DGROUP:01E9
 @CODE				  Text	 DGROUP
 @CODESIZE			  Text	 0
 @CPU				  Text	 0101H
@@ -334,20 +336,20 @@ DEFAULT_STR			  Byte	 DGROUP:0000
 DEFAULT_STR_LEN			  Number 000B
 DEF_BORD_CHR			  Number 0023
 EXIT				  Near	 DGROUP:0103
-HORIZONTALLINE			  Near	 DGROUP:01E2
+HORIZONTALLINE			  Near	 DGROUP:01DB
 MAIN				  Near	 DGROUP:0108
-PRINTSTR			  Near	 DGROUP:0191
-RECTBORDER			  Near	 DGROUP:0198
+PRINTSTR			  Near	 DGROUP:018A
+RECTBORDER			  Near	 DGROUP:0191
 SCREENH				  Number 0019
 SCREENW				  Number 00A0
 START				  Near	 DGROUP:0100
-STRCHR				  Near	 DGROUP:0179
-VERTICALLINE			  Near	 DGROUP:01C8
+STRCHR				  Near	 DGROUP:0172
+VERTICALLINE			  Near	 DGROUP:01C1
 VRAMSEGMENT			  Number B800
 
 Groups & Segments		  Bit Size Align  Combine Class
 
 DGROUP				  Group
   _DATA				  16  000D Word	  Public  DATA
-  _TEXT				  16  01FC Word	  Public  CODE
+  _TEXT				  16  01F5 Word	  Public  CODE
 

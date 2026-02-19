@@ -74,15 +74,17 @@ Main		    proc
 
                 call PrintStr
 
-                mov byte ptr al, [bp-2]
-                mov word ptr di, [bp-4]
+                pop cx
+                pop di
+                pop ax
                 sub di, B_OFFSET + SCREENW
-                mov cl, 3h
-                xor ch, ch
+
+                push di
+                push ax
+                push cx
 
                 call RectBorder
                 
-                add sp, 6h
                 pop bp
                 ret
 Main            endp
@@ -166,9 +168,9 @@ RectBorder      proc
                 push bp
                 mov bp, sp
 
-                mov word ptr di, [bp+4] 
+                mov word ptr cx, [bp+4]
                 mov word ptr ax, [bp+6]
-                mov byte ptr cl, [bp+8]
+                mov word ptr di, [bp+8] 
                 xor ch, ch
                 
                 call VerticalLine
