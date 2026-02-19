@@ -77,7 +77,11 @@ Main		    proc
                 pop cx
                 pop di
                 pop ax
+
                 sub di, B_OFFSET + SCREENW
+                add cl, B_OFFSET
+                mov ch, 03h
+                mov ah, COLATTRIB
 
                 push di
                 push ax
@@ -155,8 +159,8 @@ PrintStr        endp
 ; Entry: stack[0] = top left corner
 ;        stack[2] = char
 ;        stack[3] = color attribute
-;        stack[4] = height
-;        stack[5] = width
+;        stack[4] = width
+;        stack[5] = height
 ; Exit:  none
 ; Assum: ES points to VRAM segment
 ; Destr: AX, CX, DX, DI
@@ -172,27 +176,26 @@ RectBorder      proc
                 mov word ptr ax, [bp+6]
                 mov word ptr di, [bp+8] 
                 xor ch, ch
+
+                mov byte ptr cl, [bp+5]
                 
                 call VerticalLine
 
-                mov byte ptr cl, [bp+9]
-                add cl, B_OFFSET
+                mov byte ptr cl, [bp+4]
 
                 call HorizontalLine
 
-                mov byte ptr cl, [bp+8] 
+                mov byte ptr cl, [bp+5] 
                 mov ch, 1h
 
                 call VerticalLine
 
-                mov byte ptr cl, [bp+9]
-                add cl, B_OFFSET
+                mov byte ptr cl, [bp+4]
 
                 call HorizontalLine
                 
-                add sp, 6h
                 pop bp
-                ret
+                ret 6
 RectBorder      endp
 
 ;-------------------------------------
