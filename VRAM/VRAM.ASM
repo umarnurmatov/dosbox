@@ -17,14 +17,15 @@ COLATTRIB	equ 00000100b
 SCREENH		equ 19h
 SCREENW		equ 2*50h
 B_OFFSET    equ 4h
-CTRL_CHR    equ 2dh         ; '-'
-B_CHR       equ 2h          ; default border charachter
+CTRL_CHR    equ 2fh
+
+DEF_BORD_CHR equ 023h
 
 locals @@
 
 Start:		    call Main 
 
-                mov ax, 004ch
+Exit:           mov ax, 004ch
                 int 21h
 
 ;-------------------------------------
@@ -34,35 +35,32 @@ Main		    proc
 
                 push bp
                 mov bp, sp
+
                 
                 mov si, ARGCNT_ADDR		
-                mov byte ptr dl, [si]       ; dl = str_len
-                
-                cmp dl, 0
-                je @@init_default
+                mov byte ptr cl, [si]       ; cx = str_len
+
+                jcxz Exit
 
                 push CTRL_CHR
-                push dx
-                push CMDARG_ADDR
+                push cx
+                push CMDARG_ADDR 
                 call StrChr
                 add sp, 6h
 
-                cmp dx, cx
-                je @@b_default
-                mov si, cx
-                add si, CMDARG_ADDR + 1
-                mov byte ptr dl, [si]
-                push dx
-
-@@b_default:    push B_CHR
-
-@@b_end:        mov si, CMDARG_ADDR	        ; si = &cmd_str
-                jmp @@init_end
-     
-@@init_default: mov si, offset DEFAULT_STR	; si = &default_str
-                mov cx, DEFAULT_STR_LEN
-
-@@init_end:	    mov di, SCREENW * (SCREENH / 2) + SCREENW / 2
+                mov byte ptr al, [si]
+                cmp ax, cx
+                jne @@else
+                push DEF_BORD_CHR 
+                jmp @@if_end
+@@else:         mov di, CMDARG_ADDR 
+                add di, cx
+                mov byte ptr al, [di]
+                dec cx
+                push ax
+@@if_end:
+                mov si, CMDARG_ADDR
+                mov di, SCREENW * (SCREENH / 2) + SCREENW / 2
                 mov ax, VRAMSEGMENT
                 mov es, ax
                 mov ah, COLATTRIB           
@@ -76,36 +74,27 @@ Main		    proc
 
                 call PrintStr
 
-                mov byte ptr al, [bp-2]
-                mov word ptr di, [bp-4]
+                pop cx
+                pop di
+                pop ax
+
                 sub di, B_OFFSET + SCREENW
-                mov cl, 3h
-                xor ch, ch
+                add cl, B_OFFSET
+                mov ch, 03h
+                mov ah, COLATTRIB
 
-                call VerticalLine
+                push di
+                push ax
+                push cx
 
-                mov word ptr cx, [bp-6]
-                add cx, B_OFFSET
-
-                call HorizontalLine
-
-                mov cx, 3h
-                mov ch, 1h
-
-                call VerticalLine
-
-                mov byte ptr cx, [bp-6]
-                add cx, B_OFFSET
-                mov ch, 1h
-
-                call HorizontalLine
+                call RectBorder
                 
-                add sp, 6h
                 pop bp
                 ret
 Main            endp
 
 ;-------------------------------------
+
 
 
 ;-------------------------------------
@@ -136,7 +125,6 @@ StrChr          proc
                 mov word ptr ax, [bp+6]
                 neg cx
                 add cx, ax
-                dec cx
 
                 pop bp
                 ret
@@ -163,6 +151,52 @@ PrintStr        proc
 
                 ret
 PrintStr        endp
+
+;-------------------------------------
+
+;-------------------------------------
+; Draw rectangular border
+; Entry: stack[0] = top left corner
+;        stack[2] = char
+;        stack[3] = color attribute
+;        stack[4] = width
+;        stack[5] = height
+; Exit:  none
+; Assum: ES points to VRAM segment
+; Destr: AX, CX, DX, DI
+; Note:  Pascal
+;-------------------------------------
+
+RectBorder      proc
+                
+                push bp
+                mov bp, sp
+
+                mov word ptr cx, [bp+4]
+                mov word ptr ax, [bp+6]
+                mov word ptr di, [bp+8] 
+                xor ch, ch
+
+                mov byte ptr cl, [bp+5]
+                
+                call VerticalLine
+
+                mov byte ptr cl, [bp+4]
+
+                call HorizontalLine
+
+                mov byte ptr cl, [bp+5] 
+                mov ch, 1h
+
+                call VerticalLine
+
+                mov byte ptr cl, [bp+4]
+
+                call HorizontalLine
+                
+                pop bp
+                ret 6
+RectBorder      endp
 
 ;-------------------------------------
                 
