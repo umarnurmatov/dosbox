@@ -2,24 +2,20 @@
 
 .data
 
-CRLF		    equ 0dh, 0ah
-
-DEFAULT_STR     db 'hello world', CRLF
-DEFAULT_STR_LEN equ $ - DEFAULT_STR - 2
-
 .code
 org 100h
 
-VRAMSEGMENT	equ 0b800h
-ARGCNT_ADDR	equ 80h
-CMDARG_ADDR	equ 81h
-COLATTRIB	equ 00000100b
-SCREENH		equ 19h
-SCREENW		equ 2*50h
-B_OFFSET    equ 4h
-CTRL_CHR    equ 2fh
-
-DEF_BORD_CHR equ 023h
+VRAMSEGMENT	                equ 0b800h
+ARGCNT_ADDR	                equ 80h
+CMDARG_ADDR	                equ 81h
+DEFAULT_STR_COLATTRIB	    equ 0eh 
+DEFAULT_BORDR_COLATTRIB	    equ 1eh 
+SCREENH		                equ 19h
+SCREENW		                equ 2*50h
+B_OFFSET                    equ 4h
+CTRL_CHR                    equ 2fh
+NL_CHR                      equ '$'
+DEFAULT_BORDR_CHR           equ '#'
 
 locals @@
 
@@ -36,59 +32,77 @@ Main		    proc
                 push bp
                 mov bp, sp
 
-                
                 mov si, ARGCNT_ADDR		
                 mov byte ptr cl, [si]       ; cx = str_len
 
                 jcxz Exit
 
-                push CTRL_CHR
-                push cx
-                push CMDARG_ADDR 
+                push CTRL_CHR cx CMDARG_ADDR
                 call StrChr
-                add sp, 6h
+                add sp,6
 
                 mov byte ptr al, [si]
-                cmp ax, cx
-                jne @@else
-                push DEF_BORD_CHR 
+                cmp ax, cx                  
+                jne @@else                  ; if(ax != str_len)
+                push DEFAULT_BORDR_CHR      ; [bp-4] = default border char
+                dec cx                      ; cx = actual string length
+                                            ; excluding whitespace
                 jmp @@if_end
-@@else:         mov di, CMDARG_ADDR 
-                add di, cx
-                mov byte ptr al, [di]
-                dec cx
-                push ax
-@@if_end:
-                mov si, CMDARG_ADDR
-                mov di, SCREENW * (SCREENH / 2) + SCREENW / 2
+
+@@else:         
+                mov di, CMDARG_ADDR         ; control char present
+                add di, cx                  
+                mov byte ptr al, [di]       ; parse control sequence
+                push ax                     ; [bp-2] = border char
+
+                sub cx, 3                   ; cx = actual string length
+                                            ; excluding whitespaces and control char
+@@if_end:        
+                add si, 2                   ; si = CMDARG_ADDR + 1 (skip whitespace)
+                push si                     ; [bp-4] --> string
+
+                push cx                     ; [bp-6] = string length
+
+                mov ah, NL_CHR              
+                call MaxSubstrLen
+                push dx                     ; [bp-8] = max line length
+
+                mov cx, [bp-6]              
+                mov si, [bp-4]
+                call CntChr                 
+                push dx                     ; [bp-10] = line count
+
+                mov di, SCREENW*(SCREENH/2) + SCREENW/2
                 mov ax, VRAMSEGMENT
                 mov es, ax
-                mov ah, COLATTRIB           
-                mov dx, cx
+                mov ah, DEFAULT_STR_COLATTRIB           
+                mov dx, [bp-8]
                 shr dx, 1h
                 sal dx, 1h
                 sub di, dx		            ; pox_y -= str_len / 2
 
-                push di
-                push cx
+                push di                     ; [bp-12] = first str char pos
+
+                mov si, [bp-4]
+                mov cx, [bp-6]
 
                 call PrintStr
 
-                pop cx
-                pop di
-                pop ax
+                mov ax, [bp-2]
+                mov cx, [bp-8]
+                mov di, [bp-12]
 
                 sub di, B_OFFSET + SCREENW
                 add cl, B_OFFSET
-                mov ch, 03h
-                mov ah, COLATTRIB
+                mov ch, [bp-10]
+                add ch, 3
+                mov ah, DEFAULT_BORDR_COLATTRIB
 
-                push di
-                push ax
-                push cx
+                push di ax cx
 
                 call RectBorder
                 
+                add sp,12
                 pop bp
                 ret
 Main            endp
@@ -132,6 +146,71 @@ StrChr          endp
 
 ;-------------------------------------
 
+;-------------------------------------
+; Maximum char-separated substr length
+; Entry: DS:SI --> string
+;        AH      = separating char
+;        CX      = string length
+; Exit:  DX      = max substr length
+; Destr: DI, SI, CX, BX
+;-------------------------------------
+
+MaxSubstrLen    proc
+
+                xor dx, dx
+                xor bx, bx
+
+                mov di, si
+                add di, cx
+                mov ds:[di], ah
+                inc cx
+
+@@Strlp:        lodsb 
+                cmp ah, al
+                je @@CmpSubstrLen
+                inc bx
+                jmp @@StrlpEnd
+@@CmpSubstrLen:
+                cmp bx, dx
+                ja @@UpdateMaxLen
+                jmp @@ResetCnt
+@@UpdateMaxLen:
+                mov dx, bx
+@@ResetCnt:     xor bx, bx
+@@StrlpEnd:     loop @@Strlp
+                
+                ret
+
+MaxSubstrLen    endp
+
+;-------------------------------------
+
+
+;-------------------------------------
+; Count character entrances in string
+; Entry: DS:SI --> string
+;        AL      = char
+;        CX      = string length
+; Exit:  DX      = entrances cnt
+; Destr: SI, CX, DX
+;-------------------------------------
+
+CntChr          proc
+
+                xor dx, dx
+
+@@strlp:        lodsb
+                cmp ah, al
+                jne @@strlp_end
+                inc dx 
+@@strlp_end:    loop @@strlp
+                
+                ret
+
+CntChr          endp
+
+;-------------------------------------
+
 
 ;-------------------------------------
 ; Print string
@@ -144,11 +223,25 @@ StrChr          endp
 
 PrintStr        proc
                 
-@@loopv:        lodsb			; al = ds:[si]; ++si
-                stosw			; es:[di] = ah; ++di
-                dec cl
-                jnz @@loopv
+                push bp
+                mov bp, sp
 
+                push di                     ; [bp-2] = first line chr
+                
+@@strlp:        mov al, ds:[si]
+                cmp al, NL_CHR
+                jne @@same_line
+                pop di
+                add di, SCREENW 
+                push di
+                jmp @@strlp_end 
+@@same_line:    stosw	                    ; es:[di] = ah; ++di
+@@strlp_end:    inc si
+                dec cl
+                jnz @@strlp
+
+                add sp,2
+                pop bp
                 ret
 PrintStr        endp
 
