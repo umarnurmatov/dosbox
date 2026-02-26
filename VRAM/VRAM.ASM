@@ -1,7 +1,5 @@
 .model tiny
 
-.data
-
 .code
 org 100h
 
@@ -12,7 +10,7 @@ DEFAULT_STR_COLATTRIB	    equ 0eh
 DEFAULT_BORDR_COLATTRIB	    equ 1eh 
 SCREENH		                equ 19h
 SCREENW		                equ 2*50h
-B_OFFSET                    equ 4h
+BORDR_OFFSET                equ 2h
 CTRL_CHR                    equ 2fh
 NL_CHR                      equ '$'
 DEFAULT_BORDR_CHR           equ '#'
@@ -72,7 +70,10 @@ Main		    proc
                 call CntChr                 
                 push dx                     ; [bp-10] = line count
 
-                mov di, SCREENW*(SCREENH/2) + SCREENW/2
+                mov di, SCREENW*(SCREENH/2)+SCREENW/2
+                mov ax, SCREENW
+                mul dx
+                sub di, ax
                 mov ax, VRAMSEGMENT
                 mov es, ax
                 mov ah, DEFAULT_STR_COLATTRIB           
@@ -92,8 +93,8 @@ Main		    proc
                 mov cx, [bp-8]
                 mov di, [bp-12]
 
-                sub di, B_OFFSET + SCREENW
-                add cl, B_OFFSET
+                sub di, BORDR_OFFSET*2+SCREENW
+                add cl, BORDR_OFFSET*2
                 mov ch, [bp-10]
                 add ch, 3
                 mov ah, DEFAULT_BORDR_COLATTRIB
