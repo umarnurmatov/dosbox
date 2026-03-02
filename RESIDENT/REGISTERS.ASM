@@ -60,7 +60,6 @@ UpdIRQ0         proc
                                                     ; [bp-24] = ip (puhsed by CPU)
                                                     ; [bp-22] = cs (pushed by CPU)
                                                     ; [bp-20] = ax ...
-
                 push    cs
                 pop     ds
 
@@ -71,25 +70,8 @@ UpdIRQ0         proc
                 pop     es
                 mov     di, VMEM_OFFSET
                 lea     si, DrawBuffer 
-                mov     cx, DRAW_BUFFER_LEN
-                mov     bx, DRAW_BUFFER_W
-                
-@@BufCmpLp:     cmpsw   
-                je      @@BufCmpLpIncr
-                
-                add     si, offset SavedBuffer - offset DrawBuffer
-                mov     ax, es:[di]
-                mov     ds:[si], ax
-                sub     si, offset SavedBuffer - offset DrawBuffer
 
-@@BufCmpLpIncr: dec     bx
-                cmp     bx, 0
-                jne     @@BufCmpLpEnd
-
-                add     di, (SCR_W-DRAW_BUFFER_W)*WB
-                mov     bx, DRAW_BUFFER_W
-
-@@BufCmpLpEnd:  loop    @@BufCmpLp
+                call    UpholdSavedBuf
 
                 push    ds
                 pop     es
@@ -98,8 +80,8 @@ UpdIRQ0         proc
                 lea     di, DrawBuffer+(DRAW_BUFFER_W+4)*WB
                 lea     bx, HexTbl
                 mov     cx, REG_CNT
-@@SetRegs:       
-                mov     ax, ss:[si]
+
+@@SetRegs:      mov     ax, ss:[si]
                 sub     si, WB
                 mov     dx, ax
                 push    cx
@@ -124,9 +106,7 @@ UpdIRQ0         proc
 
                 call    CopyToVMEM
 
-@@End:
-
-                mov     al, 20h
+@@End:          mov     al, 20h
                 out     20h, al                     ; EOI (end of interrupt) в контроллер прерываний
 
                 pop     es ss ds sp bp di si dx cx bx ax
@@ -299,6 +279,42 @@ LoadRegNm       proc
                 ret
 
 LoadRegNm       endp
+;--------------------------------------------------------------------------
+
+;--------------------------------------------------------------------------
+; Uphold save buffer
+; Entry: es:di --> vram addr
+;        ds:si --> draw buffer
+; Assum: saved buffer located right after draw buffer
+;        and has same size
+;--------------------------------------------------------------------------
+
+UpholdSavedBuf  proc
+
+                mov     cx, DRAW_BUFFER_LEN
+                mov     bx, DRAW_BUFFER_W
+                
+@@BufCmpLp:     cmpsw   
+                je      @@BufCmpLpIncr
+                
+                add     si, offset SavedBuffer - offset DrawBuffer
+                mov     ax, es:[di]
+                mov     ds:[si], ax
+                sub     si, offset SavedBuffer - offset DrawBuffer
+
+@@BufCmpLpIncr: dec     bx
+                cmp     bx, 0
+                jne     @@BufCmpLpEnd
+
+                add     di, (SCR_W-DRAW_BUFFER_W)*WB
+                mov     bx, DRAW_BUFFER_W
+
+@@BufCmpLpEnd:  loop    @@BufCmpLp
+
+                ret
+
+UpholdSavedBuf  endp
+
 ;--------------------------------------------------------------------------
 
 OldIRQ9Vec              dd 0 
