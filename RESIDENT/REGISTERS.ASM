@@ -69,7 +69,11 @@ UpdIRQ0         proc
                 mov     cx, ShowInterface
                 jcxz    @@End
 
-                lea     si, [bp+WB*REG_CNT]
+                ; TODO
+                ; lea     si, DrawBuffer
+                ; lea     di, VMEM_OFFSET
+
+                lea     si, [bp+WB*11]
                 lea     di, DrawBuffer+(DRAW_BUFFER_W+4)*WB
                 lea     bx, HexTbl
                 mov     cx, REG_CNT
@@ -95,7 +99,7 @@ UpdIRQ0         proc
 
                 push    VRAMSEGMENT
                 pop     es
-                mov     di, SCR_W*(SCR_H/2)*WB + (SCR_W/2)*WB - (DRAW_BUFFER_H/2)*SCR_W*WB - (DRAW_BUFFER_W/2)*WB
+                mov     di, VMEM_OFFSET
                 mov     si, offset DrawBuffer
 
                 call    CopyToVMEM
@@ -118,7 +122,7 @@ UpdIRQ0         endp
 ;--------------------------------------------------------------------------
 UpdIRQ1         proc
 
-                push    ax bx cx dx ds                
+                push    ax bx cx dx di si es ds
 
                 push    cs
                 pop     ds
@@ -127,11 +131,23 @@ UpdIRQ1         proc
                 cmp     al, 02h                     ; scan code of '!'
                 je      @@Trigger
 
-                pop     ds dx cx bx ax
+                pop     ds es si di dx cx bx ax
                 jmp     cs:[OldIRQ9Vec]
 
-@@Trigger:
-                in      al, 61h
+@@Trigger:      not     ShowInterface
+
+                mov     cx, ShowInterface
+                cmp     cx, 0
+                jne     @@EOI
+                push    cs
+                pop     ds
+                push    VRAMSEGMENT
+                pop     es
+                mov     si, offset SavedBuffer
+                mov     di, VMEM_OFFSET
+                call    CopyToVMEM
+
+@@EOI:          in      al, 61h
                 or      al, 80h                     ; выставляем старший бит порта
                 out     61h, al
                 and     al, not 80h
@@ -139,10 +155,8 @@ UpdIRQ1         proc
 
                 mov     al, 20h
                 out     20h, al                     ; EOI (end of interrupt) в контроллер прерываний
-                
-                not     ShowInterface
 
-                pop     ds dx cx bx ax
+                pop     ds es si di dx cx bx ax
                 iret
 
 UpdIRQ1         endp
@@ -211,9 +225,10 @@ RectBorder      endp
 ;--------------------------------------------------------------------------
 
 ;--------------------------------------------------------------------------
-; Copy buffer to VMEM
+; Copy 2D buffer to VMEM 
 ; Entry: DS:SI --> buffer
 ;        ES:DI --> vmem top-left corner
+;        
 ; Destr: AX, BX, CX
 ;--------------------------------------------------------------------------
 CopyToVMEM      proc
@@ -295,10 +310,14 @@ DRAW_BUFFER_H           equ REG_CNT + 2
 
 DRAW_BUFFER_LEN         equ DRAW_BUFFER_W*DRAW_BUFFER_H
 
+VMEM_OFFSET             equ SCR_W*(SCR_H/2)*WB + (SCR_W/2)*WB - (DRAW_BUFFER_H/2)*SCR_W*WB - (DRAW_BUFFER_W/2)*WB
+
 DrawBuffer              dd DRAW_BUFFER_LEN dup(?)
+
+SavedBuffer             dd DRAW_BUFFER_LEN dup(00h)
 
 EOP:            
 
-end             Start
+end                     Start
 
 
