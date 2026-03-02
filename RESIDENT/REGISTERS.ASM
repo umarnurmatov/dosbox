@@ -57,9 +57,6 @@ UpdIRQ0         proc
                 push    ax bx cx dx si di bp sp ds ss es
                 mov     bp, sp
 
-                push    [bp+WB*11+4]           ; cs
-                push    [bp+WB*11+2]           ; ip
-
                 push    cs
                 pop     ds
 
@@ -69,18 +66,13 @@ UpdIRQ0         proc
                 mov     cx, ShowInterface
                 jcxz    @@End
 
-                ; TODO
-                ; lea     si, DrawBuffer
-                ; lea     di, VMEM_OFFSET
-
-                lea     si, [bp+WB*11]
+                lea     si, [bp+(REG_CNT-1)*WB]
                 lea     di, DrawBuffer+(DRAW_BUFFER_W+4)*WB
                 lea     bx, HexTbl
                 mov     cx, REG_CNT
 @SetRegs:       
-                std
-                lodsw                               ; ax = register_value
-                cld
+                mov     ax, ss:[si]
+                sub     si, 2
                 mov     dx, ax
                 push    cx
                 mov     cx, NIBBLE_REG_CNT
@@ -109,7 +101,7 @@ UpdIRQ0         proc
                 mov     al, 20h
                 out     20h, al                     ; EOI (end of interrupt) в контроллер прерываний
 
-                add     sp, 4                       ; skip cs and ip
+                ; add     sp, 4                       ; skip cs and ip
                 pop     es ss ds sp bp di si dx cx bx ax
                 iret
 
@@ -128,7 +120,7 @@ UpdIRQ1         proc
                 pop     ds
 
                 in      al, 60h
-                cmp     al, 02h                     ; scan code of '!'
+                cmp     al, SCAN_CODE_AM
                 je      @@Trigger
 
                 pop     ds es si di dx cx bx ax
@@ -292,7 +284,7 @@ HexTbl                  db '0123456789ABCDEF'
 
 REG_VAL_COL_ATTR        equ 4eh
 
-RegNmTbl                db 'ax bx cx dx si di bp sp ds ss es cs ip '
+RegNmTbl                db 'cs ip ax bx cx dx si di bp sp ds ss es '
 
 REG_NM_LEN              equ 3
 
@@ -315,6 +307,8 @@ VMEM_OFFSET             equ SCR_W*(SCR_H/2)*WB + (SCR_W/2)*WB - (DRAW_BUFFER_H/2
 DrawBuffer              dd DRAW_BUFFER_LEN dup(?)
 
 SavedBuffer             dd DRAW_BUFFER_LEN dup(00h)
+
+SCAN_CODE_AM            equ 02h
 
 EOP:            
 
