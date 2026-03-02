@@ -57,37 +57,65 @@ UpdIRQ0         proc
                 push    ax bx cx dx si di bp sp ds ss es
                 mov     bp, sp
 
+                                                    ; [bp-24] = ip (puhsed by CPU)
+                                                    ; [bp-22] = cs (pushed by CPU)
+                                                    ; [bp-20] = ax ...
+
                 push    cs
                 pop     ds
 
-                push    ds
-                pop     es
-
                 mov     cx, ShowInterface
                 jcxz    @@End
+
+                push    VRAMSEGMENT
+                pop     es
+                mov     di, VMEM_OFFSET
+                lea     si, DrawBuffer 
+                mov     cx, DRAW_BUFFER_LEN
+                mov     bx, DRAW_BUFFER_W
+                
+@@BufCmpLp:     cmpsw   
+                je      @@BufCmpLpIncr
+                
+                add     si, offset SavedBuffer - offset DrawBuffer
+                mov     ax, es:[di]
+                mov     ds:[si], ax
+                sub     si, offset SavedBuffer - offset DrawBuffer
+
+@@BufCmpLpIncr: dec     bx
+                cmp     bx, 0
+                jne     @@BufCmpLpEnd
+
+                add     di, (SCR_W-DRAW_BUFFER_W)*WB
+                mov     bx, DRAW_BUFFER_W
+
+@@BufCmpLpEnd:  loop    @@BufCmpLp
+
+                push    ds
+                pop     es
 
                 lea     si, [bp+(REG_CNT-1)*WB]
                 lea     di, DrawBuffer+(DRAW_BUFFER_W+4)*WB
                 lea     bx, HexTbl
                 mov     cx, REG_CNT
-@SetRegs:       
+@@SetRegs:       
                 mov     ax, ss:[si]
-                sub     si, 2
+                sub     si, WB
                 mov     dx, ax
                 push    cx
                 mov     cx, NIBBLE_REG_CNT
-@ConvertToASCII:  
+@@ConvertToASCII:  
                 mov     al, dh
                 shr     al, 4
                 shl     dx, 4
                 xlatb
                 mov     ah, REG_VAL_COL_ATTR
                 stosw
-                loop    @ConvertToASCII
+                loop    @@ConvertToASCII
 
                 pop     cx
                 add     di, (DRAW_BUFFER_W-3)*WB-WB
-                loop    @SetRegs
+                loop    @@SetRegs
 
                 push    VRAMSEGMENT
                 pop     es
@@ -101,7 +129,6 @@ UpdIRQ0         proc
                 mov     al, 20h
                 out     20h, al                     ; EOI (end of interrupt) в контроллер прерываний
 
-                ; add     sp, 4                       ; skip cs and ip
                 pop     es ss ds sp bp di si dx cx bx ax
                 iret
 
@@ -233,10 +260,9 @@ CopyToVMEM      proc
                 dec     bx
 
                 cmp     bx, 0
-                je      @@NewLine
-                jmp     @@CpLoopEnd
+                jne     @@CpLoopEnd
 
-@@NewLine:      add     di, (SCR_W-DRAW_BUFFER_W)*WB
+                add     di, (SCR_W-DRAW_BUFFER_W)*WB        ; new line
                 mov     bx, DRAW_BUFFER_W
 
 @@CpLoopEnd:    loop    @@CpLoop
@@ -263,10 +289,9 @@ LoadRegNm       proc
                 dec     bx
 
                 cmp     bx, 0
-                je      @@NewLine
-                jmp     @@CpLoopEnd
+                jne     @@CpLoopEnd
 
-@@NewLine:      add     di, (DRAW_BUFFER_W-REG_NM_LEN)*WB
+                add     di, (DRAW_BUFFER_W-REG_NM_LEN)*WB   ; new line
                 mov     bx, REG_NM_LEN                
 
 @@CpLoopEnd:    loop    @@CpLoop
@@ -306,12 +331,10 @@ VMEM_OFFSET             equ SCR_W*(SCR_H/2)*WB + (SCR_W/2)*WB - (DRAW_BUFFER_H/2
 
 DrawBuffer              dd DRAW_BUFFER_LEN dup(?)
 
-SavedBuffer             dd DRAW_BUFFER_LEN dup(00h)
+SavedBuffer             dd DRAW_BUFFER_LEN dup(?)
 
 SCAN_CODE_AM            equ 02h
 
 EOP:            
 
 end                     Start
-
-
