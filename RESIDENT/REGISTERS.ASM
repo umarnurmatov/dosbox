@@ -182,8 +182,8 @@ UpdIRQ1         proc
 @@Trigger:      not     ShowInterface
 
                 mov     cx, ShowInterface
-                cmp     cx, 0
-                jne     @@EOI
+                not     cx
+                jcxz    @@EOI
                 push    cs
                 pop     ds
                 push    VRAMSEGMENT
@@ -339,14 +339,16 @@ UpholdSavedBuf  proc
 
                 mov     cx, DRAW_BUFFER_LEN
                 mov     bx, DRAW_BUFFER_W
+
+                cld
                 
 @@BufCmpLp:     cmpsw   
                 je      @@BufCmpLpIncr
                 
-                add     si, offset SavedBuffer - offset DrawBuffer
-                mov     ax, es:[di]
+                add     si, offset SavedBuffer - offset DrawBuffer - 2
+                mov     ax, es:[di-2]
                 mov     ds:[si], ax
-                sub     si, offset SavedBuffer - offset DrawBuffer
+                sub     si, offset SavedBuffer - offset DrawBuffer - 2
 
 @@BufCmpLpIncr: dec     bx
                 cmp     bx, 0
@@ -395,7 +397,7 @@ DrawBuffer              dd DRAW_BUFFER_LEN dup(?)
 
 SavedBuffer             dd DRAW_BUFFER_LEN dup(?)
 
-SCAN_CODE_AM            equ 01h
+SCAN_CODE_AM            equ 02h
 
 FLAG_REG_CNT            equ 3
 
