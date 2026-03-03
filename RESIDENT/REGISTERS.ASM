@@ -57,9 +57,54 @@ UpdIRQ0         proc
                 push    ax bx cx dx si di bp sp ds ss es
                 mov     bp, sp
 
-                                                    ; [bp-24] = ip (puhsed by CPU)
-                                                    ; [bp-22] = cs (pushed by CPU)
-                                                    ; [bp-20] = ax ...
+                ; [bp+26] = flags (pushed by CPU)
+                mov     ax, [bp+(REG_CNT-FLAG_REG_CNT)*WB] 
+                mov     bx, ax
+                mov     cx, ax
+                and     ax, MASK_FLAG_CF
+                and     bx, MASK_FLAG_PF
+                sal     bx, 2
+                or      ax, bx
+                mov     bx, cx
+                and     bx, MASK_FLAG_AF
+                sal     bx, 4
+                or      ax, bx
+                mov     bx, cx
+                and     bx, MASK_FLAG_ZF
+                sal     bx, 6
+                or      ax, bx
+                push    ax
+
+                mov     ax, cx
+                mov     bx, cx
+                and     ax, MASK_FLAG_SF
+                sar     ax, 7
+                and     bx, MASK_FLAG_TF
+                sar     bx, 4
+                or      ax, bx
+                mov     bx, cx
+                and     bx, MASK_FLAG_IF
+                sar     bx, 1
+                or      ax, bx
+                mov     bx, cx
+                and     bx, MASK_FLAG_DF
+                sal     bx, 2
+                or      ax, bx
+                push    ax
+
+                mov     ax, cx
+                and     ax, MASK_FLAG_OF
+                sal     ax, 11
+                push    ax
+
+                ; [bp+24] = ip (puhsed by CPU)
+                ; [bp+22] = cs (pushed by CPU)
+                ; [bp+20] = ax 
+                ; ...
+                ; [bp]    = ZAPC = zero|auxiliary|parity|carry
+                ; [bp-2]  = DITS = direction|interrupt|trap|sign
+                ; [bp-4]  = xxxO = overflow      
+
                 push    cs
                 pop     ds
 
@@ -76,8 +121,8 @@ UpdIRQ0         proc
                 push    ds
                 pop     es
 
-                lea     si, [bp+(REG_CNT-1)*WB]
-                lea     di, DrawBuffer+(DRAW_BUFFER_W+4)*WB
+                lea     si, [bp+(REG_CNT-FLAG_REG_CNT-1)*WB]
+                lea     di, DrawBuffer+(DRAW_BUFFER_W+REG_NM_LEN+1)*WB
                 lea     bx, HexTbl
                 mov     cx, REG_CNT
 
@@ -109,6 +154,7 @@ UpdIRQ0         proc
 @@End:          mov     al, 20h
                 out     20h, al                     ; EOI (end of interrupt) в контроллер прерываний
 
+                add     sp, FLAG_REG_CNT*WB
                 pop     es ss ds sp bp di si dx cx bx ax
                 iret
 
@@ -325,11 +371,11 @@ HexTbl                  db '0123456789ABCDEF'
 
 REG_VAL_COL_ATTR        equ 4eh
 
-RegNmTbl                db 'cs ip ax bx cx dx si di bp sp ds ss es '
+RegNmTbl                db 'cs   ip   ax   bx   cx   dx   si   di   bp   sp   ds   ss   es   ZAPC DITS xxxO '
 
-REG_NM_LEN              equ 3
+REG_NM_LEN              equ 5
 
-REG_CNT                 equ 13
+REG_CNT                 equ 16
 
 REG_NM_COL_ATTR         equ 4eh
 
@@ -339,17 +385,37 @@ NIBBLE_REG_CNT          equ 4
 
 DRAW_BUFFER_W           equ REG_NM_LEN+NIBBLE_REG_CNT+2
 
-DRAW_BUFFER_H           equ REG_CNT + 2
+DRAW_BUFFER_H           equ REG_CNT+2
 
 DRAW_BUFFER_LEN         equ DRAW_BUFFER_W*DRAW_BUFFER_H
 
-VMEM_OFFSET             equ SCR_W*(SCR_H/2)*WB + (SCR_W/2)*WB - (DRAW_BUFFER_H/2)*SCR_W*WB - (DRAW_BUFFER_W/2)*WB
+VMEM_OFFSET             equ SCR_W*(SCR_H/2)*WB+(SCR_W/2)*WB-(DRAW_BUFFER_H/2)*SCR_W*WB-(DRAW_BUFFER_W/2)*WB
 
 DrawBuffer              dd DRAW_BUFFER_LEN dup(?)
 
 SavedBuffer             dd DRAW_BUFFER_LEN dup(?)
 
-SCAN_CODE_AM            equ 02h
+SCAN_CODE_AM            equ 01h
+
+FLAG_REG_CNT            equ 3
+
+MASK_FLAG_CF            equ 0001h
+
+MASK_FLAG_PF            equ 0004h
+
+MASK_FLAG_AF            equ 0010h
+
+MASK_FLAG_ZF            equ 0040h
+
+MASK_FLAG_SF            equ 0080h
+
+MASK_FLAG_TF            equ 0100h
+
+MASK_FLAG_IF            equ 0200h
+
+MASK_FLAG_DF            equ 0400h
+
+MASK_FLAG_OF            equ 0800h
 
 EOP:            
 
