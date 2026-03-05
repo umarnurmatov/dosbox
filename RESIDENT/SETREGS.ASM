@@ -6,17 +6,17 @@ org 100h
 REG_VAL         equ 4c00h
 
 Start:                          
-                mov bx, 0002h
-                mov cx, 0003h
-                mov dx, 0004h
-                mov si, 0005h
-                mov di, 0006h
-                mov bp, 0007h
+                mov bx, 2222h
+                mov cx, 3333h
+                mov dx, 4444h
+                mov si, 5555h
+                mov di, 6666h
+                mov bp, 7777h
 
-                push 0008h
+                push 8888h
                 pop ds
 
-                push 0009h
+                push 9999h
                 pop es
 
                 mov ah, 01h
