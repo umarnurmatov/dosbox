@@ -22,7 +22,7 @@ Start:          push 0
 
 
 UpdIRQ9         proc
-                
+
                 push ax bx es
 
                 push 0b800h

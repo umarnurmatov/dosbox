@@ -1,0 +1,429 @@
+.286
+.model tiny
+.code
+locals @@
+org 100h
+
+VRAMSEGMENT	            equ 0b800h
+SCR_H		            equ 19h
+SCR_W		            equ 50h
+WB                      equ 2                       ; bytes in word
+
+Start:          push    0
+                pop     es                          ; сегмент таблицы прерываний
+                mov     bx, 4*08h                   ; смещение 8го прерывания
+                cli    
+                mov     es:[bx], offset UpdIRQ0     ; обработчик
+                mov     ax,cs
+                mov     es:[bx+2], ax               ; текущий сегмент
+                sti    
+
+                mov     bx, 4*09h                   ; смещение 9го прерывания
+                mov     ax, es:[bx]
+                mov     word ptr OldIRQ9Vec, ax 
+                mov     ax, es:[bx+2]
+                mov     word ptr OldIRQ9Vec+2, ax
+                cli    
+                mov     es:[bx], offset UpdIRQ1     ; обработчик
+                mov     ax, cs
+                mov     es:[bx+2], ax               ; текущий сегмент
+                sti    
+
+                lea     si, RegNmTbl
+                lea     di, DrawBuffer+(DRAW_BUFFER_W+1)*WB
+                push    cs
+                pop     es
+                call    LoadRegNm
+
+                mov     bx, DRAW_BUFFER_W
+                lea     di, DrawBuffer
+                lea     si, BorderTbl
+                mov     dx, DRAW_BUFFER_H
+                call    RectBorder
+
+                mov     ax, 3100h                   ; "terminate and stay resident"
+                mov     dx, offset EOP              ; dx = floor(размер_программы / 16) + 1
+                                                    ; в параграфах (16 байт)
+                shr     dx, 4
+                inc     dx
+                int     21h
+
+
+;--------------------------------------------------------------------------
+; Update IRQ 0
+;--------------------------------------------------------------------------
+UpdIRQ0         proc
+
+                push    ax bx cx dx si di bp sp ds ss es
+                mov     bp, sp
+
+                ; [bp+26] = flags (pushed by CPU)
+                mov     ax, [bp+(REG_CNT-FLAG_REG_CNT)*WB] 
+                mov     bx, ax
+                mov     cx, ax
+                and     ax, MASK_FLAG_CF
+                and     bx, MASK_FLAG_PF
+                sal     bx, 2
+                or      ax, bx
+                mov     bx, cx
+                and     bx, MASK_FLAG_AF
+                sal     bx, 4
+                or      ax, bx
+                mov     bx, cx
+                and     bx, MASK_FLAG_ZF
+                sal     bx, 6
+                or      ax, bx
+                push    ax
+
+                mov     ax, cx
+                mov     bx, cx
+                and     ax, MASK_FLAG_SF
+                sar     ax, 7
+                and     bx, MASK_FLAG_TF
+                sar     bx, 4
+                or      ax, bx
+                mov     bx, cx
+                and     bx, MASK_FLAG_IF
+                sar     bx, 1
+                or      ax, bx
+                mov     bx, cx
+                and     bx, MASK_FLAG_DF
+                sal     bx, 2
+                or      ax, bx
+                push    ax
+
+                mov     ax, cx
+                and     ax, MASK_FLAG_OF
+                sal     ax, 11
+                push    ax
+
+                ; [bp+24] = ip (puhsed by CPU)
+                ; [bp+22] = cs (pushed by CPU)
+                ; [bp+20] = ax 
+                ; ...
+                ; [bp]    = ZAPC = zero|auxiliary|parity|carry
+                ; [bp-2]  = DITS = direction|interrupt|trap|sign
+                ; [bp-4]  = xxxO = overflow      
+
+                push    cs
+                pop     ds
+
+                mov     cx, ShowInterface
+                jcxz    @@End
+
+                push    VRAMSEGMENT
+                pop     es
+                mov     di, VMEM_OFFSET
+                lea     si, DrawBuffer 
+
+                call    UpholdSavedBuf
+
+                push    ds
+                pop     es
+
+                lea     si, Reg_BP_Offset
+                lea     bx, HexTbl
+                mov     cx, REG_CNT
+
+@@SetRegs:      mov     ax, [si]
+                lea     di, [bp]
+                add     di, ax
+                mov     ax, ss:[di]
+                add     si, WB
+                mov     dx, ax
+                push    cx
+                mov     cx, NIBBLE_REG_CNT
+@@ConvertToASCII:  
+                mov     al, dh
+                shr     al, 4
+                shl     dx, 4
+                xlatb                           ; дико медленно
+                mov     ah, REG_VAL_COL_ATTR
+                lea     di, DrawBuffer+(DRAW_BUFFER_W+REG_NM_LEN+1)*WB
+                stosw
+                loop    @@ConvertToASCII
+
+                pop     cx
+                add     di, (DRAW_BUFFER_W-3)*WB-WB
+                loop    @@SetRegs
+
+                push    VRAMSEGMENT
+                pop     es
+                mov     di, VMEM_OFFSET
+                mov     si, offset DrawBuffer
+
+                call    CopyToVMEM
+
+@@End:          mov     al, 20h
+                out     20h, al                     ; EOI (end of interrupt) в контроллер прерываний
+
+                add     sp, FLAG_REG_CNT*WB
+                pop     es ss ds sp bp di si dx cx bx ax
+                iret
+
+UpdIRQ0         endp
+;--------------------------------------------------------------------------
+
+
+;--------------------------------------------------------------------------
+; Update IRQ 1
+;--------------------------------------------------------------------------
+UpdIRQ1         proc
+
+                push    ax bx cx dx di si es ds
+
+                push    cs
+                pop     ds
+
+                in      al, 60h
+                cmp     al, SCAN_CODE_AM
+                je      @@Trigger
+
+                pop     ds es si di dx cx bx ax
+                jmp     cs:[OldIRQ9Vec]
+
+@@Trigger:      not     ShowInterface
+
+                mov     cx, ShowInterface
+                not     cx
+                jcxz    @@EOI
+                push    cs
+                pop     ds
+                push    VRAMSEGMENT
+                pop     es
+                mov     si, offset SavedBuffer
+                mov     di, VMEM_OFFSET
+                call    CopyToVMEM
+
+@@EOI:          in      al, 61h
+                or      al, 80h                     ; выставляем старший бит порта
+                out     61h, al
+                and     al, not 80h
+                out     61h, al                     ; "мигнули" старшим битом
+
+                mov     al, 20h
+                out     20h, al                     ; EOI (end of interrupt) в контроллер прерываний
+
+                pop     ds es si di dx cx bx ax
+                iret
+
+UpdIRQ1         endp
+;--------------------------------------------------------------------------
+
+;--------------------------------------------------------------------------
+; Draw border to draw buffer
+; Entry: ES:DI --> top-left corner of buffer 
+;        DS:SI --> arr[9] of symbols
+;        AH      = color attrib
+;        BX      = width
+;        DX      = height
+; Destr: CX
+;--------------------------------------------------------------------------
+
+RectBorder      proc
+
+                cld
+                lodsb
+                stosw
+
+                lodsb
+                lea     cx, [bx-2]
+                rep     stosw
+
+                lodsb
+                stosw
+                add     di, (DRAW_BUFFER_W-1)*WB
+
+                lodsb
+                mov     cx, dx
+                sub     cx, 2
+@@VertRight:    mov     es:[di], ax
+                add     di, DRAW_BUFFER_W*WB
+                loop    @@VertRight
+                
+
+                lodsb
+
+                std
+                stosw
+                cld
+
+                lodsb
+                lea     cx, [bx-2]
+                std
+                rep     stosw
+                cld
+
+                lodsb
+                std
+                stosw
+                cld
+                sub     di, (DRAW_BUFFER_W-1)*WB
+
+                lodsb
+                mov     cx, dx
+                sub     cx, 2
+@@VertLeft:     mov     es:[di], ax
+                sub     di, DRAW_BUFFER_W*WB
+                loop    @@VertLeft
+                
+                ret
+
+RectBorder      endp
+;--------------------------------------------------------------------------
+
+;--------------------------------------------------------------------------
+; Copy 2D buffer to VMEM 
+; Entry: DS:SI --> buffer
+;        ES:DI --> vmem top-left corner
+;        
+; Destr: AX, BX, CX
+;--------------------------------------------------------------------------
+CopyToVMEM      proc
+
+                mov     bx, DRAW_BUFFER_W
+                mov     cx, DRAW_BUFFER_H*DRAW_BUFFER_W
+
+@@CpLoop:       lodsw 
+                stosw
+                dec     bx
+
+                cmp     bx, 0
+                jne     @@CpLoopEnd
+
+                add     di, (SCR_W-DRAW_BUFFER_W)*WB        ; new line
+                mov     bx, DRAW_BUFFER_W
+
+@@CpLoopEnd:    loop    @@CpLoop
+
+                ret
+
+CopyToVMEM      endp
+;--------------------------------------------------------------------------
+
+;--------------------------------------------------------------------------
+; Load register names to buffer 
+; Entry: DS:SI --> reg name table
+;        ES:DI --> buffer 
+; Destr: AX, BX, CX
+;--------------------------------------------------------------------------
+LoadRegNm       proc
+
+                mov     bx, REG_NM_LEN
+                mov     cx, REG_NM_LEN*REG_CNT
+                mov     ah, REG_NM_COL_ATTR
+
+@@CpLoop:       lodsb 
+                stosw
+                dec     bx
+
+                cmp     bx, 0
+                jne     @@CpLoopEnd
+
+                add     di, (DRAW_BUFFER_W-REG_NM_LEN)*WB   ; new line
+                mov     bx, REG_NM_LEN                
+
+@@CpLoopEnd:    loop    @@CpLoop
+
+                ret
+
+LoadRegNm       endp
+;--------------------------------------------------------------------------
+
+;--------------------------------------------------------------------------
+; Uphold save buffer
+; Entry: es:di --> vram addr
+;        ds:si --> draw buffer
+; Assum: saved buffer located right after draw buffer
+;        and has same size
+;--------------------------------------------------------------------------
+
+UpholdSavedBuf  proc
+
+                mov     cx, DRAW_BUFFER_LEN
+                mov     bx, DRAW_BUFFER_W
+
+                cld
+                
+@@BufCmpLp:     cmpsw   
+                je      @@BufCmpLpIncr
+                
+                add     si, offset SavedBuffer - offset DrawBuffer - 2
+                mov     ax, es:[di-2]
+                mov     ds:[si], ax
+                sub     si, offset SavedBuffer - offset DrawBuffer - 2
+
+@@BufCmpLpIncr: dec     bx
+                cmp     bx, 0
+                jne     @@BufCmpLpEnd
+
+                add     di, (SCR_W-DRAW_BUFFER_W)*WB
+                mov     bx, DRAW_BUFFER_W
+
+@@BufCmpLpEnd:  loop    @@BufCmpLp
+
+                ret
+
+UpholdSavedBuf  endp
+
+;--------------------------------------------------------------------------
+
+OldIRQ9Vec              dd 0 
+
+ShowInterface           dw 0
+
+HexTbl                  db '0123456789ABCDEF'
+
+REG_VAL_COL_ATTR        equ 4eh
+
+RegNmTbl                db 'ax   bx   cx   dx   si   di   bp   sp   ds   ss   es   cs   ip   ZAPC DITS xxxO '
+
+REG_NM_LEN              equ 5
+
+REG_CNT                 equ 16
+
+REG_NM_COL_ATTR         equ 4eh
+
+BorderTbl               db '#-#|#-#|'
+
+Reg_BP_Offset           dw 20, 18, 16, 14, 12, 10, 8, 6, 4, 2, 0, 24, 22, -2, -4, -6
+
+NIBBLE_REG_CNT          equ 4
+
+DRAW_BUFFER_W           equ REG_NM_LEN+NIBBLE_REG_CNT+2
+
+DRAW_BUFFER_H           equ REG_CNT+2
+
+DRAW_BUFFER_LEN         equ DRAW_BUFFER_W*DRAW_BUFFER_H
+
+VMEM_OFFSET             equ SCR_W*(SCR_H/2)*WB+(SCR_W/2)*WB-(DRAW_BUFFER_H/2)*SCR_W*WB-(DRAW_BUFFER_W/2)*WB
+
+DrawBuffer              dd DRAW_BUFFER_LEN dup(?)
+
+SavedBuffer             dd DRAW_BUFFER_LEN dup(?)
+
+SCAN_CODE_AM            equ 3fh
+
+FLAG_REG_CNT            equ 3
+
+MASK_FLAG_CF            equ 0001h
+
+MASK_FLAG_PF            equ 0004h
+
+MASK_FLAG_AF            equ 0010h
+
+MASK_FLAG_ZF            equ 0040h
+
+MASK_FLAG_SF            equ 0080h
+
+MASK_FLAG_TF            equ 0100h
+
+MASK_FLAG_IF            equ 0200h
+
+MASK_FLAG_DF            equ 0400h
+
+MASK_FLAG_OF            equ 0800h
+
+EOP:            
+
+end                     Start
