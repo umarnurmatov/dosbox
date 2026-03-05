@@ -123,12 +123,15 @@ UpdIRQ0         proc
 
                 lea     si, Reg_BP_Offset
                 lea     bx, HexTbl
+                lea     di, DrawBuffer+(DRAW_BUFFER_W+REG_NM_LEN+1)*WB
                 mov     cx, REG_CNT
 
-@@SetRegs:      mov     ax, [si]
+@@SetRegs:      push    di
+                mov     ax, [si]
                 lea     di, [bp]
                 add     di, ax
                 mov     ax, ss:[di]
+                pop     di
                 add     si, WB
                 mov     dx, ax
                 push    cx
@@ -139,7 +142,6 @@ UpdIRQ0         proc
                 shl     dx, 4
                 xlatb                           ; дико медленно
                 mov     ah, REG_VAL_COL_ATTR
-                lea     di, DrawBuffer+(DRAW_BUFFER_W+REG_NM_LEN+1)*WB
                 stosw
                 loop    @@ConvertToASCII
 
