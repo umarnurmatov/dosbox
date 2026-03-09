@@ -172,11 +172,19 @@ UpdIRQ1         proc
                 push    cs
                 pop     ds
 
+                mov     ax, 40h
+                mov     es, ax
+                mov     ax, word ptr es:[17h]
+                test    al, 04h
+                jz      @@SCTrigger
+                jmp     @@IRQchain
+
+@@SCTrigger:    
                 in      al, 60h
                 cmp     al, SCAN_CODE_AM
                 je      @@Trigger
 
-                pop     ds es si di dx cx bx ax
+@@IRQchain:     pop     ds es si di dx cx bx ax
                 jmp     cs:[OldIRQ9Vec]
 
 @@Trigger:      not     ShowInterface
@@ -273,7 +281,6 @@ RectBorder      endp
 ; Copy 2D buffer to VMEM 
 ; Entry: DS:SI --> buffer
 ;        ES:DI --> vmem top-left corner
-;        
 ; Destr: AX, BX, CX
 ;--------------------------------------------------------------------------
 CopyToVMEM      proc
@@ -331,6 +338,7 @@ LoadRegNm       endp
 ; Uphold save buffer
 ; Entry: es:di --> vram addr
 ;        ds:si --> draw buffer
+; Destr: AX, BX, CX
 ; Assum: saved buffer located right after draw buffer
 ;        and has same size
 ;--------------------------------------------------------------------------
@@ -362,6 +370,21 @@ UpholdSavedBuf  proc
                 ret
 
 UpholdSavedBuf  endp
+
+;--------------------------------------------------------------------------
+
+;--------------------------------------------------------------------------
+; Is CTRL modificator set (from BIOS)
+; Exit:  ZF = 1 if set
+; Destr: AX, ES
+;--------------------------------------------------------------------------
+
+IsCTRLSet       proc
+
+
+                ret
+
+IsCTRLSet       endp
 
 ;--------------------------------------------------------------------------
 
@@ -397,7 +420,7 @@ DrawBuffer              dd DRAW_BUFFER_LEN dup(?)
 
 SavedBuffer             dd DRAW_BUFFER_LEN dup(?)
 
-SCAN_CODE_AM            equ 02h
+SCAN_CODE_AM            equ 3fh
 
 FLAG_REG_CNT            equ 3
 
