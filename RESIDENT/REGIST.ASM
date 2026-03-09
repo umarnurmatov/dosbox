@@ -121,13 +121,15 @@ UpdIRQ0         proc
                 push    ds
                 pop     es
 
-                lea     si, [bp+(REG_CNT-FLAG_REG_CNT-1)*WB]
-                lea     di, DrawBuffer+(DRAW_BUFFER_W+REG_NM_LEN+1)*WB
+                lea     si, Reg_BP_Offset
                 lea     bx, HexTbl
                 mov     cx, REG_CNT
 
-@@SetRegs:      mov     ax, ss:[si]
-                sub     si, WB
+@@SetRegs:      mov     ax, [si]
+                lea     di, [bp]
+                add     di, ax
+                mov     ax, ss:[di]
+                add     si, WB
                 mov     dx, ax
                 push    cx
                 mov     cx, NIBBLE_REG_CNT
@@ -135,8 +137,9 @@ UpdIRQ0         proc
                 mov     al, dh
                 shr     al, 4
                 shl     dx, 4
-                xlatb
+                xlatb                           ; дико медленно
                 mov     ah, REG_VAL_COL_ATTR
+                lea     di, DrawBuffer+(DRAW_BUFFER_W+REG_NM_LEN+1)*WB
                 stosw
                 loop    @@ConvertToASCII
 
@@ -396,7 +399,7 @@ HexTbl                  db '0123456789ABCDEF'
 
 REG_VAL_COL_ATTR        equ 4eh
 
-RegNmTbl                db 'cs   ip   ax   bx   cx   dx   si   di   bp   sp   ds   ss   es   ZAPC DITS xxxO '
+RegNmTbl                db 'ax   bx   cx   dx   si   di   bp   sp   ds   ss   es   cs   ip   ZAPC DITS xxxO '
 
 REG_NM_LEN              equ 5
 
@@ -405,6 +408,8 @@ REG_CNT                 equ 16
 REG_NM_COL_ATTR         equ 4eh
 
 BorderTbl               db '#-#|#-#|'
+
+Reg_BP_Offset           dw 20, 18, 16, 14, 12, 10, 8, 6, 4, 2, 0, 24, 22, -2, -4, -6
 
 NIBBLE_REG_CNT          equ 4
 
