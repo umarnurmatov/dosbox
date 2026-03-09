@@ -53,9 +53,6 @@ Start:              DISP_STR StrGreet
 
                     INP_STR StrPasswdInp
 
-                    DISP_CHR CARRIAGE_RET
-                    DISP_CHR LINE_FEED
-
                     push    ds
                     pop     es
                     lea     si, StrPasswdInp+2
@@ -63,6 +60,10 @@ Start:              DISP_STR StrGreet
                     call    Hash
 
                     CMP_STR HASH_LEN, PasswdHash, CorrectPasswdHash
+
+                    DISP_CHR CARRIAGE_RET
+                    DISP_CHR LINE_FEED
+
                     je      Correct
 
 Incorrent:          DISP_STR StrIncorrect
