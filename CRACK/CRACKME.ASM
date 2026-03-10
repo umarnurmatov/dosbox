@@ -66,10 +66,13 @@ Start:              DISP_STR StrGreet
 
                     je      Correct
 
+inf:                jmp inf
+
 Incorrent:          DISP_STR StrIncorrect
                     jmp     ProgramEnd
 
 Correct:            DISP_STR StrCorrect
+
 
 ProgramEnd:         EXIT_WITH_CODE 00h 
 
