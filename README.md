@@ -1,3 +1,12 @@
+# 80486 assembler tasks
+
+This repository contains tasks from DREC MIPT assembler course.
+
+Task list:
+- Popup with text (`VRAM/`)
+- [Resident popup window (TSR)](#resident-popup-window-tsr)
+- [Crackme](#crackme)
+
 ## Resident popup window (TSR)
 
 ### General description
@@ -29,3 +38,11 @@ Flags are shown the following way:
 | ZAPC | Zero:Auxiliary:Parity:Carry   |
 | DITS | Direction:Interrupt:Trap:Sign |
 | xxx0 | Overflow                      |
+
+## Crackme
+
+This task is a hacking task between students, i.e. one student hacks program written by another student and vice-versa.
+
+Program that was intended to crack contains 2 voulnerablities. Sources are available at `CRACK`.
+
+Process of cracking my teammate's programm is available at `CRACKM/README.md`. 
