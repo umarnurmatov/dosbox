@@ -1,5 +1,9 @@
 *.COM
+!CRACK_ME.COM
 *.MAP
 *.OBJ
 *.EXE
 *.LST
+*.id*
+*.nam
+*.til
